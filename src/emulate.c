@@ -4,9 +4,11 @@
 #include <assert.h>
 #include <stdint.h>
 #include <limits.h>
+#include <unistd.h>
 
 #define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
+#define WORD_SIZE 4
 #define CPSR 16
 
 
@@ -56,7 +58,7 @@ uint32_t getV(void);
 uint32_t maskInt(uint32_t data, int upper, int lower);
 uint32_t instructionType(uint32_t instruction);
 int checkCond(uint32_t instruction);
-void initialize(void);
+void initialize(const char *filename);
 void routeInstruction(uint32_t instruction);
 void dproc(uint32_t instruction);
 
@@ -83,32 +85,62 @@ void branch(uint32_t instruction);
 uint32_t multiply_normal(uint32_t instruction);
 uint32_t multiply_acc(uint32_t instruction);
 
+uint8_t checkInput(int argc, char **argv);
+
 
 
 int main(int argc, char **argv) {
+    
+    
 
-    initialize();
-    uint32_t testInstruction = 10 << 28;
-    state.registers[CPSR] = 0xf << 28;
-    uint32_t data = 0x0000000f;
-    uint32_t result = maskInt(data, 5, 2);
+    if (checkInput(argc, argv) !=  0) {
+        return -1;
+    }
     
-    uint32_t instruction = 0xffffffff;
+    initialize(argv[1]);
+    printf("0x%08X\n", state.memory[0]);
+    //uint32_t testInstruction = 10 << 28;
+    //state.registers[CPSR] = 0xf << 28;
+    //uint32_t data = 0x0000000f;
+    //uint32_t result = maskInt(data, 5, 2);
     
-    routeInstruction(instruction);
+    //uint32_t instruction = 0xffffffff;
     
-    printf("CPSR : %u \n", result);
+    //routeInstruction(instruction);
+    
 
-    checkCond(testInstruction);
+
+    //checkCond(testInstruction);
     return EXIT_SUCCESS;
 }
 
+uint8_t checkInput(int argc, char **argv) {
+    if (argc <= 1) {
+        printf("No input specified.\n");
+        return -1;
+    }
 
+    if(access( argv[1], F_OK ) == -1) {
+        printf("Given input file does not exist.\n");
+        return -1;
+    }
+    
+    if(access( argv[1], R_OK ) == -1 ) {
+        printf("The file can't be read.\n");
+        return -1;
+    }
+    return 0;
+}
 
-void initialize(void) {
+void initialize(const char *filename) {
+    
     state.memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
+    FILE *fp = fopen(filename, "r");
+    fread(state.memory, WORD_SIZE, MEMORY_SIZE, fp);    
+    fclose(fp);
+    
     memset(state.registers, 0, REGISTERS_COUNT);
-    memset(state.memory, 0, MEMORY_SIZE* sizeof(uint32_t));
+
 }
 
 int checkCond(uint32_t instruction) {
