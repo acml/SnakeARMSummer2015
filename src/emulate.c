@@ -201,29 +201,53 @@ uint32_t dproc_and(uint32_t instruction, uint32_t operand2) {
 }
 
 void multiply(uint32_t instruction) {
+    uint32_t result;
     if (checkCond(instruction)) {
-        int bit21 = maskInt(instruction, 21, 21);
+        uint8_t bit21 = maskInt(instruction, 21, 21);
         if (bit21 == 1) {
-            //multiply accumulate
+            result = multiply_acc(instruction);
         } else {
-            //multiply
+            result = multiply_normal(instruction);
         }
         
-        //if bit 20 is set, update CPSR flags
-        //if bit 20 is off, don't update flags
-        
-        
+        uint8_t sBit = maskInt(instruction, 20, 20);
+        if (sBit == 1) {
+            if (result == 0) {
+                setFlag(1, Z_POS);
+            }
+            setFlag(maskInt(result, 31, 31), N_POS);
+        }
         
     }
 }
 
-uint32_t multiply_normal(uint32_t instruction) {
-
-}
-
 uint32_t multiply_acc(uint32_t instruction) {
-
+    uint8_t rd = maskInt(instruction, 19, 16);
+    uint8_t rn = maskInt(instruction, 15, 12);
+    uint8_t rs = maskInt(instruction, 11, 8);
+    uint8_t rm = maskInt(instruction, 3, 0);
+    uint32_t result;
+    
+    result = state.registers[rs] * state.registers[rm];
+    result += state.registers[rn];
+    state.registers[rd] = result;
+                    
+    return result;
 }
+
+uint32_t multiply_normal(uint32_t instruction) {
+    uint8_t rd = maskInt(instruction, 19, 16);
+    uint8_t rs = maskInt(instruction, 11, 8);
+    uint8_t rm = maskInt(instruction, 3, 0);
+    uint32_t result;
+    
+    result = state.registers[rs] * state.registers[rm];
+    state.registers[rd] = result;
+                    
+    return result;
+}
+
+
 
 
 
