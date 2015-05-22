@@ -36,6 +36,7 @@ void multiply(uint32_t instruction);
 uint32_t multiply_normal(uint32_t instruction);
 uint32_t multiply_acc(uint32_t instruction);
 uint32_t dproc_and(uint32_t instruction, uint32_t operand2);
+uint32_t branch(uint32_t instruction);
 
 int main(int argc, char **argv) {
 
@@ -156,13 +157,13 @@ void routeInstruction(uint32_t instruction) {
 			dproc(instruction);
 			return;
 		case 1:
-			//multiply(instruction);
+			multiply(instruction);
 			return;
 		case 2:
 			//sDataTrans(instruction);
 			return;
 		case 3:
-			//branch(instruction);
+			branch(instruction);
 			return;
 		default:			
 			return;
@@ -202,7 +203,7 @@ uint32_t dproc_and(uint32_t instruction, uint32_t operand2) {
 
 void multiply(uint32_t instruction) {
     uint32_t result;
-    if (checkCond(instruction)) {
+    if (checkCond(instruction) == 1) {
         uint8_t bit21 = maskInt(instruction, 21, 21);
         if (bit21 == 1) {
             result = multiply_acc(instruction);
@@ -247,7 +248,11 @@ uint32_t multiply_normal(uint32_t instruction) {
     return result;
 }
 
-
+uint32_t branch(uint32_t instruction) {
+    if (checkCond(instruction) == 1) {
+        int32_t offset = maskInt(instruction, 23, 0);
+    }
+}
 
 
 
