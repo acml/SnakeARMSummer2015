@@ -33,3 +33,6 @@ assemble
 *.nav
 *.toc
 
+#ignore eclipse stuff
+*.cproject
+*.project
