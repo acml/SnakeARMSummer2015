@@ -7,6 +7,7 @@
 #define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
 #define CPSR 16
+#define PC 15
 #define N_POS 31
 #define Z_POS 30
 #define C_POS 29
@@ -33,10 +34,11 @@ void initialize(void);
 void routeInstruction(uint32_t instruction);
 void dproc(uint32_t instruction);
 void multiply(uint32_t instruction);
+void branch(uint32_t instruction);
 uint32_t multiply_normal(uint32_t instruction);
 uint32_t multiply_acc(uint32_t instruction);
 uint32_t dproc_and(uint32_t instruction, uint32_t operand2);
-uint32_t branch(uint32_t instruction);
+
 
 int main(int argc, char **argv) {
 
@@ -248,9 +250,18 @@ uint32_t multiply_normal(uint32_t instruction) {
     return result;
 }
 
-uint32_t branch(uint32_t instruction) {
+void branch(uint32_t instruction) {
     if (checkCond(instruction) == 1) {
-        int32_t offset = maskInt(instruction, 23, 0);
+        //get a 24 bit value and shift it left
+        uint32_t mask = maskInt(instruction, 23, 0);
+        mask = mask << 2;
+        
+        //move it upto 31st bit
+        //move it back so leading 1s/0s are added (it's signed now)
+        int32_t offset = mask << 6;
+        offset = offset >> 6;
+        
+        state.registers[PC] += mask;
     }
 }
 
