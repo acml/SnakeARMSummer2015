@@ -11,7 +11,10 @@
 
 
 
-//Flags related constants
+
+
+#define PC 15
+
 #define N_POS 31
 #define Z_POS 30
 #define C_POS 29
@@ -57,6 +60,7 @@ void initialize(void);
 void routeInstruction(uint32_t instruction);
 void dproc(uint32_t instruction);
 
+
 //DATA PROCESSING INSTRUCTIONS
 uint32_t dproc_and(uint32_t operand2, uint8_t rn, uint8_t rd);
 uint32_t dproc_eor(uint32_t operand2, uint8_t rn, uint8_t rd);
@@ -72,6 +76,12 @@ uint32_t dproc_mov(uint32_t operand2, uint8_t rd);
 //DATA PROCESSING HELPERS
 uint32_t dproc_getOperand2(uint32_t instruction);
 uint32_t shift(uint8_t type, uint32_t number, uint32_t offset);
+
+
+void multiply(uint32_t instruction);
+void branch(uint32_t instruction);
+uint32_t multiply_normal(uint32_t instruction);
+uint32_t multiply_acc(uint32_t instruction);
 
 
 
@@ -195,13 +205,13 @@ void routeInstruction(uint32_t instruction) {
 			dproc(instruction);
 			return;
 		case 1:
-			//multiply(instruction);
+			multiply(instruction);
 			return;
 		case 2:
 			//sDataTrans(instruction);
 			return;
 		case 3:
-			//branch(instruction);
+			branch(instruction);
 			return;
 		default:			
 			return;
@@ -344,6 +354,7 @@ uint32_t dproc_and(uint32_t operand2,
 	return result;
 }
 
+
 // XOR rd = operand2 XOR rn
 uint32_t dproc_eor(uint32_t operand2, uint8_t rn, uint8_t rd) {
     uint32_t result = state.registers[rn] ^ operand2;
@@ -424,3 +435,66 @@ uint32_t dproc_mov(uint32_t operand2, uint8_t rd) {
 	state.registers[rd] = result;
 	return result;
 }
+
+void multiply(uint32_t instruction) {
+    uint32_t result;
+    if (checkCond(instruction) == 1) {
+        uint8_t bit21 = maskInt(instruction, 21, 21);
+        if (bit21 == 1) {
+            result = multiply_acc(instruction);
+        } else {
+            result = multiply_normal(instruction);
+        }
+        
+        uint8_t sBit = maskInt(instruction, 20, 20);
+        if (sBit == 1) {
+            if (result == 0) {
+                setFlag(1, Z_POS);
+            }
+            setFlag(maskInt(result, 31, 31), N_POS);
+        }
+        
+    }
+}
+
+uint32_t multiply_acc(uint32_t instruction) {
+    uint8_t rd = maskInt(instruction, 19, 16);
+    uint8_t rn = maskInt(instruction, 15, 12);
+    uint8_t rs = maskInt(instruction, 11, 8);
+    uint8_t rm = maskInt(instruction, 3, 0);
+    uint32_t result;
+    
+    result = state.registers[rs] * state.registers[rm];
+    result += state.registers[rn];
+    state.registers[rd] = result;
+                    
+    return result;
+}
+
+uint32_t multiply_normal(uint32_t instruction) {
+    uint8_t rd = maskInt(instruction, 19, 16);
+    uint8_t rs = maskInt(instruction, 11, 8);
+    uint8_t rm = maskInt(instruction, 3, 0);
+    uint32_t result;
+    
+    result = state.registers[rs] * state.registers[rm];
+    state.registers[rd] = result;
+                    
+    return result;
+}
+
+void branch(uint32_t instruction) {
+    if (checkCond(instruction) == 1) {
+        //get a 24 bit value and shift it left
+        uint32_t mask = maskInt(instruction, 23, 0);
+        mask = mask << 2;
+        
+        //move it upto 31st bit
+        //move it back so leading 1s/0s are added (it's signed now)
+        int32_t offset = mask << 6;
+        offset = offset >> 6;
+        
+        state.registers[PC] += mask;
+    }
+}
+
