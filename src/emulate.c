@@ -33,6 +33,8 @@ void initialize(void);
 void routeInstruction(uint32_t instruction);
 void dproc(uint32_t instruction);
 void multiply(uint32_t instruction);
+uint32_t multiply_normal(uint32_t instruction);
+uint32_t multiply_acc(uint32_t instruction);
 uint32_t dproc_and(uint32_t instruction, uint32_t operand2);
 
 int main(int argc, char **argv) {
@@ -200,6 +202,32 @@ uint32_t dproc_and(uint32_t instruction, uint32_t operand2) {
 
 void multiply(uint32_t instruction) {
     if (checkCond(instruction)) {
+        int bit21 = maskInt(instruction, 21, 21);
+        if (bit21 == 1) {
+            //multiply accumulate
+        } else {
+            //multiply
+        }
         
-    }   
+        //if bit 20 is set, update CPSR flags
+        //if bit 20 is off, don't update flags
+        
+        
+        
+    }
 }
+
+uint32_t multiply_normal(uint32_t instruction) {
+
+}
+
+uint32_t multiply_acc(uint32_t instruction) {
+
+}
+
+
+
+
+
+
+
