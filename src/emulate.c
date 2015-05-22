@@ -32,6 +32,7 @@ int checkCond(uint32_t instruction);
 void initialize(void);
 void routeInstruction(uint32_t instruction);
 void dproc(uint32_t instruction);
+void multiply(uint32_t instruction);
 uint32_t dproc_and(uint32_t instruction, uint32_t operand2);
 
 int main(int argc, char **argv) {
@@ -195,4 +196,10 @@ uint32_t dproc_and(uint32_t instruction, uint32_t operand2) {
 	uint32_t result = state.registers[rn] & operand2;
 	state.registers[rd] = result;
 	return result;
+}
+
+void multiply(uint32_t instruction) {
+    if (checkCond(instruction)) {
+        
+    }   
 }
