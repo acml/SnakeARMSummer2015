@@ -82,7 +82,7 @@ uint32_t getZ(state_t *state);
 uint32_t getC(state_t *state);
 uint32_t getV(state_t *state);
 
-ins_t insTpye(state_t *state);
+ins_t insType(state_t *state);
 
 int isCondTrue(state_t *state);
 
@@ -90,7 +90,7 @@ void initialize(const char *filename);
 void routeInstruction(state_t *state);
 void dproc(state_t *state);
 
-
+int isCondTrue(state_t *state);
 void setFlag(state_t *state, uint8_t val, uint8_t pos);
 
 //DATA PROCESSING INSTRUCTIONS
@@ -107,7 +107,7 @@ uint32_t dproc_mov(state_t *state, uint32_t operand2, uint8_t rd);
 
 //DATA PROCESSING HELPERS
 uint32_t dproc_getOperand2(state_t *state);
-uint32_t shift(uint8_t type, uint32_t number, uint32_t offset);
+uint32_t shift(state_t *state, uint8_t type, uint32_t number, uint32_t offset);
 
 
 void multiply(uint32_t instruction);
@@ -125,10 +125,12 @@ int main(int argc, char **argv) {
     }
 
     state_t *state = newState();
+    
     if (state == NULL) {
         return EXIT_FAILURE;
     }
-
+    
+  /*
     while(1) {
         execut(state);
         decode(state);
@@ -138,7 +140,7 @@ int main(int argc, char **argv) {
 
 
 
-
+  */
     //initialize(argv[1]);
     printf("0x%08X\n", state->memory[0]);
     return EXIT_SUCCESS;
@@ -174,7 +176,7 @@ void initialize(const char *filename) {
 }
 */
 
-void setFlag(state_t *state, int val, int pos) {
+void setFlag(state_t *state, uint8_t val, uint8_t pos) {
 	if (val == 0) {
 		val = 1 << pos;
 		val = ~val;
@@ -191,21 +193,21 @@ void setFlag(state_t *state, int val, int pos) {
 // Routes instructions to a correct router
 void routeInstruction(state_t *state) {
   
-	if (!checkCond(state->fetched)) {
+	if (isCondTrue(state) == 0) {
 		return;
 	}
-	int type = instructionType(state->fetched);
+	ins_t type = insType(state);
 	switch(type) {
-		case 0:
+		case DATA_PROCESSING:
 			dproc(state);
 			return;
-		case 1:
+		case MULTIPLY:
 			//multiply(instruction);
 			return;
-		case 2:
+		case SINGLE_DATA_TRANSFER:
 			//sDataTrans(instruction);
 			return;
-		case 3:
+		case BRANCH:
 			//branch(instruction);
 			return;
 		default:
@@ -214,12 +216,12 @@ void routeInstruction(state_t *state) {
 }
 
 // Routes the dataProcessing instruction to a correct function
-void dproc(state->fetched) {
+void dproc(state_t *state) {
 	int opcode = maskBits(state->fetched, 24, 21);
 	uint32_t operand2 = dproc_getOperand2(state);
 	uint32_t result;
 	uint8_t rn = maskBits(state->fetched, 19, 16);
-	uint8_t rd = maskBits(instruction, 15, 12);
+	uint8_t rd = maskBits(state->fetched, 15, 12);
 	switch(opcode) {
 		case 0:
 			result = dproc_and(state, operand2, rn, rd);
@@ -259,11 +261,11 @@ void dproc(state->fetched) {
 	int sBit = maskBits(state->fetched, S_POS, S_POS);
 	if (sBit) {
 		if (result == 0) {
-			setFlag(1, Z_POS);
+			setFlag(state, 1, Z_POS);
 		} else {
-			setFlag(0, Z_POS);
+			setFlag(state, 0, Z_POS);
 		}
-		setFlag(maskBits(result, 31, 31), N_POS);
+		setFlag(state, maskBits(result, 31, 31), N_POS);
 	}
 }
 
@@ -296,12 +298,12 @@ uint32_t dproc_getOperand2(state_t *state) {
             SHIFT_TYPE_HIGH);
     uint32_t offset;
     if (bit4) {
-        uint8_t rs = maskInt(state->fetched, REG_RS_HIGH, REG_RS_LOW);
-        offset = maskInt(state->registers[rs], 7, 0);
+        uint8_t rs = maskBits(state->fetched, REG_RS_HIGH, REG_RS_LOW);
+        offset = maskBits(state->registers[rs], 7, 0);
     } else {
-        offset = maskInt(state->fetched, SHIFT_CONST_HIGH, SHIFT_CONST_LOW);
+        offset = maskBits(state->fetched, SHIFT_CONST_HIGH, SHIFT_CONST_LOW);
     }
-    operand2 = shift(shiftType, state->registers[rm], offset);
+    operand2 = shift(state, shiftType, state->registers[rm], offset);
     return operand2;
 }
 
@@ -313,7 +315,7 @@ uint32_t dproc_getOperand2(state_t *state) {
 //      3 -rotate right
 // Bits are always shifted by offset value and the last bit to be discarded
 // (rotated) is set to carry flag
-uint32_t shift(uint8_t type, uint32_t number, uint32_t offset) {
+uint32_t shift(state_t *state, uint8_t type, uint32_t number, uint32_t offset) {
     if (offset < 1) {
         return number;
     }
@@ -321,24 +323,24 @@ uint32_t shift(uint8_t type, uint32_t number, uint32_t offset) {
     uint8_t carryOut;
     switch (type) {
         case 0:
-            carryOut = maskInt(number, 31 - offset, 31 - offset);
+            carryOut = maskBits(number, 31 - offset, 31 - offset);
             result = number << offset;
             break;
         case 1:
 
-            carryOut = maskInt(number, offset - 1, offset - 1);
+            carryOut = maskBits(number, offset - 1, offset - 1);
             result = number >> offset;
             break;
         case 2:
-            carryOut = maskInt(number, offset - 1, offset - 1);
+            carryOut = maskBits(number, offset - 1, offset - 1);
             result = (int32_t) number >> offset;
             break;
         case 3:
-            carryOut = maskInt (number, offset - 1, offset - 1);
+            carryOut = maskBits(number, offset - 1, offset - 1);
             result = rotateRight(number, offset);
             break;
     }
-    setFlag(carryOut, C_POS);
+    setFlag(state, carryOut, C_POS);
     return result;
 }
 
@@ -361,10 +363,10 @@ uint32_t dproc_eor(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
 
 // Substraction rd = operand2 - rn, if rn > operand2, carry generated
 uint32_t dproc_sub(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
-    if ((int32_t) state.registers[rn] < (int32_t)operand2) {
-        setFlag(1, C_POS);
+    if ((int32_t) state->registers[rn] < (int32_t)operand2) {
+        setFlag(state, 1, C_POS);
     } else {
-        setFlag(0, C_POS);
+        setFlag(state, 0, C_POS);
     }
 	uint32_t result = (int32_t) state->registers[rn] - (int32_t)operand2;
 	state->registers[rd] = result;
@@ -374,9 +376,9 @@ uint32_t dproc_sub(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
 // Substraction rd = operand2 - rn, if rn > operand2, carry generated
 uint32_t dproc_rsb(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
     if ((int32_t)operand2 < (int32_t) state->registers[rn]) {
-        setFlag(1, C_POS);
+        setFlag(state, 1, C_POS);
     } else {
-        setFlag(0, C_POS);
+        setFlag(state, 0, C_POS);
     }
 	uint32_t result = operand2 - (int32_t) state->registers[rn];
 	state->registers[rd] = result;
@@ -386,12 +388,12 @@ uint32_t dproc_rsb(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
 // Additiotion rd = rn + operand2, unsigned overflow sets carry flag
 uint32_t dproc_add(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
     if ((int32_t) state->registers[rn]  > INT_MAX - (int32_t)operand2) {
-        setFlag(1, C_POS);
+        setFlag(state, 1, C_POS);
     } else {
-        setFlag(0, C_POS);
+        setFlag(state, 0, C_POS);
     }
 	uint32_t result = (int32_t) state->registers[rn] + (int32_t)operand2;
-	state.registers[rd] = result;
+	state->registers[rd] = result;
 	return result;
 }
 
@@ -411,9 +413,9 @@ uint32_t dproc_teq(state_t *state, uint32_t operand2, uint8_t rn) {
 // Compare rn and operand2, if operand2 if bigger, carry flag is set
 uint32_t dproc_cmp(state_t *state, uint32_t operand2, uint8_t rn) {
     if ((int32_t) state->registers[rn] < (int32_t)operand2) {
-        setFlag(1, C_POS);
+        setFlag(state, 1, C_POS);
     } else {
-        setFlag(0, C_POS);
+        setFlag(state, 0, C_POS);
     }
 	uint32_t result = (int32_t) state->registers[rn] - (int32_t)operand2;
 	return result;
@@ -421,7 +423,7 @@ uint32_t dproc_cmp(state_t *state, uint32_t operand2, uint8_t rn) {
 
 // Bitwise or on operand2 and rn, result saved in rd
 uint32_t dproc_orr(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd) {
-	uint32_t result = state.registers[rn] | operand2;
+	uint32_t result = state->registers[rn] | operand2;
 	state->registers[rd] = result;
 	return result;
 }
@@ -511,6 +513,7 @@ state_t *newState(void) {
     memset(state->registers, 0, REGISTERS_SIZE);
 
     state->memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
+    
     if (state->memory == NULL) {
         free(state->registers);
         free(state);
@@ -577,7 +580,7 @@ uint32_t getV(state_t *state){
     return maskBits(state->registers[CPSR_REG], V_BIT, V_BIT);
 }
 
-ins_t insTpye(state_t *state) {
+ins_t insType(state_t *state) {
     uint32_t typeBits = maskBits(state->fetched, 27, 26);
     if (typeBits == 1) {
         return SINGLE_DATA_TRANSFER;
