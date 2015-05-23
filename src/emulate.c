@@ -22,14 +22,11 @@ typedef struct state {
     uint32_t *memory;
     int isDecoded;
     int isFetched;
-}state_t;
+} state_t;
 
 typedef enum {
-    DATA_PROCESSING,
-    MULTIPLY,
-    SINGLE_DATA_TRANSFER,
-    BRANCH
-}ins_t;
+    DATA_PROCESSING, MULTIPLY, SINGLE_DATA_TRANSFER, BRANCH
+} ins_t;
 
 state_t *newState(void);
 void delState(state_t *state);
@@ -44,6 +41,7 @@ uint32_t getN(state_t *state);
 uint32_t getZ(state_t *state);
 uint32_t getC(state_t *state);
 uint32_t getV(state_t *state);
+void setFlag(state_t *state, int val, int flag);
 
 ins_t insTpye(state_t *state);
 
@@ -109,7 +107,7 @@ int readBinary(state_t *state, int argc, char **argv) {
         return 0;
     }
 
-    FILE *fp = fopen(argv[1], "rb");;
+    FILE *fp = fopen(argv[1], "rb");
     if (fp == NULL) {
         printf("Could not open input file.\n");
         return 0;
@@ -143,7 +141,7 @@ void incPC(state_t *state) {
 }
 
 uint32_t maskBits(uint32_t data, int upper, int lower) {
-    assert(upper >= lower && upper <=31 && lower >=0);
+    assert(upper >= lower && upper <= 31 && lower >= 0);
     data <<= TOP_BIT - upper;
     data >>= TOP_BIT - (upper - lower);
     return data;
@@ -157,12 +155,20 @@ uint32_t getZ(state_t *state) {
     return maskBits(state->registers[CPSR_REG], Z_BIT, Z_BIT);
 }
 
-uint32_t getC(state_t *state){
+uint32_t getC(state_t *state) {
     return maskBits(state->registers[CPSR_REG], C_BIT, C_BIT);
 }
 
-uint32_t getV(state_t *state){
+uint32_t getV(state_t *state) {
     return maskBits(state->registers[CPSR_REG], V_BIT, V_BIT);
+}
+
+void setFlag(state_t *state, int val, int flag) {
+    if (val) {
+        state->registers[CPSR_REG] |= 1 << flag;
+    } else {
+        state->registers[CPSR_REG] &= ~(1 << flag);
+    }
 }
 
 ins_t insTpye(state_t *state) {
@@ -185,19 +191,19 @@ ins_t insTpye(state_t *state) {
 
 int checkCond(state_t *state) {
     uint32_t condBits = maskBits(state->fetched, N_BIT, V_BIT);
-    switch(condBits) {
+    switch (condBits) {
         case 0:
-            return getZ(state) == 1;
+            return getZ(state);
         case 1:
-            return getZ(state) == 0;
+            return !getZ(state);
         case 10:
             return getN(state) == getV(state);
         case 11:
             return getN(state) != getV(state);
         case 12:
-            return getZ(state) == 0 && getN(state) == getV(state);
+            return !getZ(state) && getN(state) == getV(state);
         case 13:
-            return getZ(state) == 1 || getN(state) != getV(state);
+            return getZ(state) || getN(state) != getV(state);
         default:
             return 1;
     }
