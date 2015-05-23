@@ -33,6 +33,8 @@ typedef enum {
 
 state_t *newState(void);
 void delState(state_t *state);
+int readBinary(state_t *state, int argc, char **argv);
+
 void execut(state_t *state);
 void decode(state_t *state);
 void fetch(state_t *state);
@@ -45,11 +47,14 @@ uint32_t getV(state_t *state);
 
 ins_t insTpye(state_t *state);
 
-int isCondTrue(state_t *state);
+int checkCond(state_t *state);
 
 int main(int argc, char **argv) {
     state_t *state = newState();
     if (state == NULL) {
+        return EXIT_FAILURE;
+    }
+    if (!readBinary(state, argc, argv)) {
         return EXIT_FAILURE;
     }
 
@@ -96,6 +101,23 @@ void delState(state_t *state) {
         free(state->memory);
         free(state);
     }
+}
+
+int readBinary(state_t *state, int argc, char **argv) {
+    if (argc == 1) {
+        printf("No input file specified.\n");
+        return 0;
+    }
+
+    FILE *fp = fopen(argv[1], "rb");;
+    if (fp == NULL) {
+        printf("Could not open input file.\n");
+        return 0;
+    }
+    fread(state->memory, sizeof(uint32_t), MEMORY_SIZE, fp);
+    fclose(fp);
+
+    return 1;
 }
 
 void execut(state_t *state) {
@@ -161,7 +183,7 @@ ins_t insTpye(state_t *state) {
     }
 }
 
-int isCondTrue(state_t *state) {
+int checkCond(state_t *state) {
     uint32_t condBits = maskBits(state->fetched, N_BIT, V_BIT);
     switch(condBits) {
         case 0:
