@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#include <endian.h>
 
 #define BYTES_IN_WORD 4
 #define REGISTERS_COUNT 17
@@ -63,12 +64,12 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-//    while (!state->isTermainated) {
-//        execut(state);
-//        decode(state);
-//        fetch(state);
-//        incPC(state);
-//    }
+    while (!state->isTermainated) {
+        execut(state);
+        decode(state);
+        fetch(state);
+        incPC(state);
+    }
 
     if (!writeState(state, argv)) {
         return EXIT_FAILURE;
@@ -88,7 +89,7 @@ state_t *newState(void) {
         free(state);
         return NULL;
     }
-    memset(state->registers, 0, REGISTERS_COUNT);
+    memset(state->registers, 0, REGISTERS_COUNT * sizeof(uint32_t));
 
     state->memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
     if (state->memory == NULL) {
@@ -96,7 +97,7 @@ state_t *newState(void) {
         free(state);
         return NULL;
     }
-    memset(state->memory, 0, MEMORY_SIZE);
+    memset(state->memory, 0, MEMORY_SIZE * sizeof(uint32_t));
 
     state->fetched = 0;
     state->isDecoded = 0;
@@ -124,7 +125,17 @@ int readBinary(state_t *state, int argc, char **argv) {
         printf("Could not open input file.\n");
         return 0;
     }
-    fread(state->memory, sizeof(uint32_t), MEMORY_SIZE, fp);
+
+    uint32_t *word = malloc(sizeof(uint32_t));
+    if (word == NULL) {
+        return 0;
+    }
+    int i = 0;
+    while (fread(word, sizeof(uint32_t), 1, fp)) {
+        state->memory[i] = be32toh(*word);
+        i++;
+    }
+    free(word);
 
     fclose(fp);
     return 1;
