@@ -106,9 +106,16 @@ uint32_t dproc_orr(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd);
 uint32_t dproc_mov(state_t *state, uint32_t operand2, uint8_t rd);
 
 //DATA PROCESSING HELPERS
-uint32_t dproc_getOperand2(state_t *state);
+uint32_t dproc_getOperand2(state_t *state, int iBit);
 uint32_t shift(state_t *state, uint8_t type, uint32_t number, uint32_t offset);
 
+/* SINGLE DATA TRANSFER INSTRUCTIONS
+*/
+void transferData(state_t *state, int bitL, uint8_t rn, uint8_t rd);
+uint32_t getOffset(state_t *state);
+void sDataTrans(state_t *state);
+void ldr(state_t *state, uint8_t rn, uint8_t rd);
+void str(state_t *state, uint8_t rn, uint8_t rd);
 
 void multiply(uint32_t instruction);
 void branch(uint32_t instruction);
@@ -218,7 +225,8 @@ void routeInstruction(state_t *state) {
 // Routes the dataProcessing instruction to a correct function
 void dproc(state_t *state) {
 	int opcode = maskBits(state->fetched, 24, 21);
-	uint32_t operand2 = dproc_getOperand2(state);
+	int iBit = maskBits(state->fetched, I_POS, I_POS);
+	uint32_t operand2 = dproc_getOperand2(state, iBit);
 	uint32_t result;
 	uint8_t rn = maskBits(state->fetched, 19, 16);
 	uint8_t rd = maskBits(state->fetched, 15, 12);
@@ -281,8 +289,8 @@ uint32_t rotateRight(uint32_t number, uint32_t offset) {
 // if bit I is cleared, the operand2 is specified by a register rm. It is either
 // rotated by a constant value(if bit4 is cleared) or rotated by a least
 // significant byte of rs
-uint32_t dproc_getOperand2(state_t *state) {
-    int iBit = maskBits(state->fetched, I_POS, I_POS);
+uint32_t dproc_getOperand2(state_t *state, int iBit) {
+    //int iBit = maskBits(state->fetched, I_POS, I_POS);
     uint32_t operand2;
     if (iBit) {
         operand2 = maskBits(state->fetched, IMM_OPERAND_HIGH, IMM_OPERAND_LOW);
@@ -615,5 +623,56 @@ int isCondTrue(state_t *state) {
             return getZ(state) == 1 || getN(state) != getV(state);
         default:
             return 1;
+    }
+}
+
+uint32_t getOffset(state_t *state) {
+  int iBit = maskBits(state->fetched, I_POS, I_POS);
+  return dproc_getOperand2(state, !iBit);  
+}
+
+void sDataTrans(state_t *state) {
+/* TODO : assertion(PC != rm & PC != rd)
+   TODO : assertion for PC as a Rn
+*/  
+    uint32_t offset = getOffset(state);
+    uint8_t rm = maskBits(state-> fetched, REG_RM_HIGH, REG_RM_LOW);
+    uint8_t rn = maskBits(state -> fetched, 19, 16);
+    uint8_t rd = maskBits(state-> fetched, 15, 12);
+    int bitL = maskBits(state->fetched, 20, 19);
+    int bitU = maskBits(state->fetched, 23, 22);
+    int bitP = maskBits(state->fetched, 24, 23);
+
+    if(bitP) {
+        transferData(state, bitL, rn, rd);
+    } else {
+        if(rm != rn) {
+            transferData(state, bitL, rn, rd);
+            if(bitU) {
+                rn = (int32_t) state->registers[rn] + (int32_t) offset;
+            } else {
+                rn = (int32_t) state->registers[rn] - (int32_t) offset;
+            }
+        }
+    }
+    
+}
+
+void ldr(state_t *state, uint8_t rn, uint8_t rd) {
+    uint32_t memAddress = state->registers[rd];
+    state->registers[rn] = state->memory[memAddress];
+}
+
+void str(state_t *state, uint8_t rn, uint8_t rd) {
+    uint32_t memValue = state->registers[rd];
+    uint32_t memAddress = state->registers[rn];
+    state->memory[memAddress] = memValue;
+}
+
+void transferData(state_t *state, int bitL, uint8_t rn, uint8_t rd) {
+    if(bitL) {
+        ldr(state, rn, rd);
+    } else {
+        str(state, rn, rd);
     }
 }
