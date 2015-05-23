@@ -22,10 +22,6 @@
 #define WORD_SIZE 4
 #define CPSR 16
 
-
-
-
-
 #define PC 15
 
 #define N_POS 31
@@ -33,11 +29,9 @@
 #define C_POS 29
 #define V_POS 28
 
-
 //Data processing related constants
 #define S_POS 20
 #define I_POS 25
-
 
 #define IMM_OPERAND_LOW 0
 #define IMM_OPERAND_HIGH 7
@@ -52,8 +46,6 @@
 #define REG_RS_HIGH 11
 #define SHIFT_CONST_LOW 7
 #define SHIFT_CONST_HIGH 11
-
-
 
 typedef struct state {
     uint32_t fetched;
@@ -124,8 +116,6 @@ uint32_t multiply_acc(uint32_t instruction);
 
 uint8_t checkInput(int argc, char **argv);
 
-
-
 int main(int argc, char **argv) {
     if (checkInput(argc, argv) !=  0) {
         return EXIT_FAILURE;
@@ -144,10 +134,8 @@ int main(int argc, char **argv) {
         fetch(state);
         incPC(state);
     }
-
-
-
   */
+
     //initialize(argv[1]);
     printf("0x%08X\n", state->memory[0]);
     return EXIT_SUCCESS;
@@ -170,6 +158,7 @@ uint8_t checkInput(int argc, char **argv) {
     }
     return 0;
 }
+
 /*
 void initialize(const char *filename) {
 
@@ -194,8 +183,6 @@ void setFlag(state_t *state, uint8_t val, uint8_t pos) {
 		state->registers[CPSR_REG] = state->registers[CPSR_REG] | val;
 	}
 }
-
-
 
 // Routes instructions to a correct router
 void routeInstruction(state_t *state) {
@@ -507,6 +494,7 @@ void branch(uint32_t instruction) {
 }
 
 */
+
 state_t *newState(void) {
     state_t *state = malloc(sizeof(state_t));
     if (state == NULL) {
