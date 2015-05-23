@@ -5,23 +5,27 @@
 #include <assert.h>
 
 #define BYTES_IN_WORD 4
-#define REGISTERS_SIZE 17
+#define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
+#define GENERAL_REG_COUNT 13
 #define TOP_BIT 31
 #define N_BIT 31
 #define Z_BIT 30
 #define C_BIT 29
 #define V_BIT 28
 #define I_BIT 25
+#define SP_REG 13
+#define LR_REG 14
 #define PC_REG 15
 #define CPSR_REG 16
 
-typedef struct state {
+typedef struct arm_state {
     uint32_t fetched;
     uint32_t *registers;
     uint32_t *memory;
     int isDecoded;
     int isFetched;
+    int isTermainated;
 } state_t;
 
 typedef enum {
@@ -31,6 +35,8 @@ typedef enum {
 state_t *newState(void);
 void delState(state_t *state);
 int readBinary(state_t *state, int argc, char **argv);
+int writeState(state_t *state, char **argv);
+void printRegister(state_t *state, FILE *fp, int reg);
 
 void execut(state_t *state);
 void decode(state_t *state);
@@ -52,15 +58,20 @@ int main(int argc, char **argv) {
     if (state == NULL) {
         return EXIT_FAILURE;
     }
+
     if (!readBinary(state, argc, argv)) {
         return EXIT_FAILURE;
     }
 
-    while (1) {
-        execut(state);
-        decode(state);
-        fetch(state);
-        incPC(state);
+//    while (!state->isTermainated) {
+//        execut(state);
+//        decode(state);
+//        fetch(state);
+//        incPC(state);
+//    }
+
+    if (!writeState(state, argv)) {
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
@@ -72,12 +83,12 @@ state_t *newState(void) {
         return NULL;
     }
 
-    state->registers = malloc(REGISTERS_SIZE * sizeof(uint32_t));
+    state->registers = malloc(REGISTERS_COUNT * sizeof(uint32_t));
     if (state->registers == NULL) {
         free(state);
         return NULL;
     }
-    memset(state->registers, 0, REGISTERS_SIZE);
+    memset(state->registers, 0, REGISTERS_COUNT);
 
     state->memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
     if (state->memory == NULL) {
@@ -90,6 +101,7 @@ state_t *newState(void) {
     state->fetched = 0;
     state->isDecoded = 0;
     state->isFetched = 0;
+    state->isTermainated = 0;
     return state;
 }
 
@@ -113,9 +125,46 @@ int readBinary(state_t *state, int argc, char **argv) {
         return 0;
     }
     fread(state->memory, sizeof(uint32_t), MEMORY_SIZE, fp);
-    fclose(fp);
 
+    fclose(fp);
     return 1;
+}
+
+int writeState(state_t *state, char **argv) {
+    FILE *fp = fopen(strcat(argv[1], ".out"), "w");
+    if (fp == NULL) {
+        printf("Could not open output file.\n");
+        return 0;
+    }
+
+    fprintf(fp, "Registers:\n");
+    for (int i = 0; i < REGISTERS_COUNT; i++) {
+        if (i != SP_REG && i != LR_REG) {
+            printRegister(state, fp, i);
+        }
+    }
+
+    fprintf(fp, "Non-zero memory:\n");
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        if (state->memory[i] != 0) {
+            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, state->memory[i]);
+        }
+    }
+
+    fclose(fp);
+    return 1;
+}
+
+void printRegister(state_t *state, FILE *fp, int reg) {
+    if (reg == PC_REG) {
+        fprintf(fp, "PC\t:");
+    } else if (reg == CPSR_REG) {
+        fprintf(fp, "CPSR:");
+    } else {
+        fprintf(fp, "$%d\t:", reg);
+    }
+    fprintf(fp, "% 11d (0x%08x)\n", state->registers[reg],
+            state->registers[reg]);
 }
 
 void execut(state_t *state) {
