@@ -80,12 +80,12 @@ int isCondTrue(state_t *state);
 
 void initialize(const char *filename);
 void routeInstruction(state_t *state);
-void dproc(state_t *state);
 
 int isCondTrue(state_t *state);
 void setFlag(state_t *state, uint8_t val, uint8_t pos);
 
 //DATA PROCESSING INSTRUCTIONS
+void dproc(state_t *state);
 uint32_t dproc_and(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd);
 uint32_t dproc_eor(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd);
 uint32_t dproc_sub(state_t *state, uint32_t operand2, uint8_t rn, uint8_t rd);
@@ -109,10 +109,13 @@ void sDataTrans(state_t *state);
 void ldr(state_t *state, uint8_t rn, uint8_t rd);
 void str(state_t *state, uint8_t rn, uint8_t rd);
 
-void multiply(uint32_t instruction);
-void branch(uint32_t instruction);
+//MULTIPLY INSTRUCTIONS
+void multiply(state_t state);
 uint32_t multiply_normal(uint32_t instruction);
 uint32_t multiply_acc(uint32_t instruction);
+
+//BRANCH INSTRUCTION
+void branch(state_t state);
 
 uint8_t checkInput(int argc, char **argv);
 
@@ -196,13 +199,13 @@ void routeInstruction(state_t *state) {
 			dproc(state);
 			return;
 		case MULTIPLY:
-			//multiply(instruction);
+			multiply(state);
 			return;
 		case SINGLE_DATA_TRANSFER:
-			//sDataTrans(instruction);
+			sDataTrans(state);
 			return;
 		case BRANCH:
-			//branch(instruction);
+			branch(state);
 			return;
 		default:
 			return;
