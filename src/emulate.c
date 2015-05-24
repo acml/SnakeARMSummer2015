@@ -435,13 +435,13 @@ uint32_t dproc_mov(state_t *state, uint32_t operand2, uint8_t rd) {
 
 
 void multiply(state_t *state) {
-    uint32_t instruction = state->fetched;
     uint32_t result;
+    
     if (checkCond(instruction) == 1) {
-        uint8_t bit21 = maskInt(instruction, 21, 21);
-        uint8_t rd = maskInt(instruction, 19, 16);
-        uint8_t rs = maskInt(instruction, 11, 8);
-        uint8_t rm = maskInt(instruction, 3, 0);
+        uint8_t bit21 = maskInt(state->fetched, 21, 21);
+        uint8_t rd = maskInt(state->fetched, 19, 16);
+        uint8_t rs = maskInt(state->fetched, 11, 8);
+        uint8_t rm = maskInt(state->fetched, 3, 0);
         
         if (bit21 == 1) {
             result = multiply_acc(instruction, rd, rs, rm);
@@ -452,24 +452,23 @@ void multiply(state_t *state) {
         uint8_t sBit = maskInt(instruction, 20, 20);
         if (sBit == 1) {
             if (result == 0) {
-                setFlag(1, Z_POS);
+                setFlag(state, 1, Z_POS);
             }
-            setFlag(maskInt(result, 31, 31), N_POS);
+            setFlag(state, maskInt(result, 31, 31), N_POS);
         }
 
     }
 }
 
-uint32_t multiply_acc(uint32_t instruction) {
-    uint8_t rd = maskInt(instruction, 19, 16);
+uint32_t multiply_acc(uint32_t instruction, uint8_t rd,
+                      uint8_t rs, uint8_t rm) {
+                      
     uint8_t rn = maskInt(instruction, 15, 12);
-    uint8_t rs = maskInt(instruction, 11, 8);
-    uint8_t rm = maskInt(instruction, 3, 0);
     uint32_t result;
 
-    result = state.registers[rs] * state.registers[rm];
-    result += state.registers[rn];
-    state.registers[rd] = result;
+    result = state->registers[rs] * state->registers[rm];
+    result += state->registers[rn];
+    state->registers[rd] = result;
 
     return result;
 }
@@ -479,7 +478,7 @@ uint32_t multiply_normal(uint32_t instruction, uint8_t rd,
     
     uint32_t result;
 
-    result = state.registers[rs] * state.registers[rm];
+    result = state->registers[rs] * state->registers[rm];
     state->registers[rd] = result;
 
     return result;
