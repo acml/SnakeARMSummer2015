@@ -433,15 +433,20 @@ uint32_t dproc_mov(state_t *state, uint32_t operand2, uint8_t rd) {
 	return result;
 }
 
-/*
-void multiply(uint32_t instruction) {
+
+void multiply(state_t *state) {
+    uint32_t instruction = state->fetched;
     uint32_t result;
     if (checkCond(instruction) == 1) {
         uint8_t bit21 = maskInt(instruction, 21, 21);
+        uint8_t rd = maskInt(instruction, 19, 16);
+        uint8_t rs = maskInt(instruction, 11, 8);
+        uint8_t rm = maskInt(instruction, 3, 0);
+        
         if (bit21 == 1) {
-            result = multiply_acc(instruction);
+            result = multiply_acc(instruction, rd, rs, rm);
         } else {
-            result = multiply_normal(instruction);
+            result = multiply_normal(instruction, rd, rs, rm);
         }
 
         uint8_t sBit = maskInt(instruction, 20, 20);
@@ -469,22 +474,21 @@ uint32_t multiply_acc(uint32_t instruction) {
     return result;
 }
 
-uint32_t multiply_normal(uint32_t instruction) {
-    uint8_t rd = maskInt(instruction, 19, 16);
-    uint8_t rs = maskInt(instruction, 11, 8);
-    uint8_t rm = maskInt(instruction, 3, 0);
+uint32_t multiply_normal(uint32_t instruction, uint8_t rd,
+                         uint8_t rs, uint8_t rm) {
+    
     uint32_t result;
 
     result = state.registers[rs] * state.registers[rm];
-    state.registers[rd] = result;
+    state->registers[rd] = result;
 
     return result;
 }
 
-void branch(uint32_t instruction) {
-    if (checkCond(instruction) == 1) {
+void branch(state_t *state) {
+    if (checkCond(state->fetched) == 1) {
         //get a 24 bit value and shift it left
-        uint32_t mask = maskInt(instruction, 23, 0);
+        uint32_t mask = maskInt(state->fetched, 23, 0);
         mask = mask << 2;
 
         //move it upto 31st bit
@@ -492,11 +496,10 @@ void branch(uint32_t instruction) {
         int32_t offset = mask << 6;
         offset = offset >> 6;
 
-        state.registers[PC] += mask;
+        state->registers[PC] += mask;
     }
 }
 
-*/
 
 state_t *newState(void) {
     state_t *state = malloc(sizeof(state_t));
