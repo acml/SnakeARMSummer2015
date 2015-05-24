@@ -110,12 +110,12 @@ void ldr(state_t *state, uint8_t rn, uint8_t rd);
 void str(state_t *state, uint8_t rn, uint8_t rd);
 
 //MULTIPLY INSTRUCTIONS
-void multiply(state_t state);
-uint32_t multiply_normal(uint32_t instruction);
-uint32_t multiply_acc(uint32_t instruction);
+void multiply(state_t *state);
+uint32_t multiply_normal(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm);
+uint32_t multiply_acc(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm);
 
 //BRANCH INSTRUCTION
-void branch(state_t state);
+void branch(state_t *state);
 
 uint8_t checkInput(int argc, char **argv);
 
@@ -436,34 +436,34 @@ uint32_t dproc_mov(state_t *state, uint32_t operand2, uint8_t rd) {
 
 void multiply(state_t *state) {
     uint32_t result;
+    uint32_t instruction = state->fetched;
     
-    if (checkCond(instruction) == 1) {
-        uint8_t bit21 = maskInt(state->fetched, 21, 21);
-        uint8_t rd = maskInt(state->fetched, 19, 16);
-        uint8_t rs = maskInt(state->fetched, 11, 8);
-        uint8_t rm = maskInt(state->fetched, 3, 0);
+    if (isCondTrue(state) == 1) {
+        uint8_t bit21 = maskBits(instruction, 21, 21);
+        uint8_t rd = maskBits(instruction, 19, 16);
+        uint8_t rs = maskBits(instruction, 11, 8);
+        uint8_t rm = maskBits(instruction, 3, 0);
         
         if (bit21 == 1) {
-            result = multiply_acc(instruction, rd, rs, rm);
+            result = multiply_acc(state, rd, rs, rm);
         } else {
-            result = multiply_normal(instruction, rd, rs, rm);
+            result = multiply_normal(state, rd, rs, rm);
         }
 
-        uint8_t sBit = maskInt(instruction, 20, 20);
+        uint8_t sBit = maskBits(instruction, 20, 20);
         if (sBit == 1) {
             if (result == 0) {
                 setFlag(state, 1, Z_POS);
             }
-            setFlag(state, maskInt(result, 31, 31), N_POS);
+            setFlag(state, maskBits(result, 31, 31), N_POS);
         }
 
     }
 }
 
-uint32_t multiply_acc(uint32_t instruction, uint8_t rd,
-                      uint8_t rs, uint8_t rm) {
+uint32_t multiply_acc(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm) {
                       
-    uint8_t rn = maskInt(instruction, 15, 12);
+    uint8_t rn = maskBits(state->fetched, 15, 12);
     uint32_t result;
 
     result = state->registers[rs] * state->registers[rm];
@@ -473,8 +473,7 @@ uint32_t multiply_acc(uint32_t instruction, uint8_t rd,
     return result;
 }
 
-uint32_t multiply_normal(uint32_t instruction, uint8_t rd,
-                         uint8_t rs, uint8_t rm) {
+uint32_t multiply_normal(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm) {
     
     uint32_t result;
 
@@ -485,9 +484,9 @@ uint32_t multiply_normal(uint32_t instruction, uint8_t rd,
 }
 
 void branch(state_t *state) {
-    if (checkCond(state->fetched) == 1) {
+    if (isCondTrue(state) == 1) {
         //get a 24 bit value and shift it left
-        uint32_t mask = maskInt(state->fetched, 23, 0);
+        uint32_t mask = maskBits(state->fetched, 23, 0);
         mask = mask << 2;
 
         //move it upto 31st bit
