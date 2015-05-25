@@ -20,9 +20,6 @@
 
 #define REGISTERS_COUNT 17
 #define WORD_SIZE 4
-#define CPSR 16
-
-#define PC 15
 
 #define N_POS 31
 #define Z_POS 30
@@ -438,47 +435,42 @@ void multiply(state_t *state) {
     uint32_t result;
     uint32_t instruction = state->fetched;
     
-    if (isCondTrue(state) == 1) {
-        uint8_t bit21 = maskBits(instruction, 21, 21);
-        uint8_t rd = maskBits(instruction, 19, 16);
-        uint8_t rs = maskBits(instruction, 11, 8);
-        uint8_t rm = maskBits(instruction, 3, 0);
-        
-        if (bit21 == 1) {
-            result = multiply_acc(state, rd, rs, rm);
+    if (isCondTrue(state) == 1) {        
+        if (state->decoded->isA == 1) {
+            result = multiply_acc(state);
         } else {
-            result = multiply_normal(state, rd, rs, rm);
+            result = multiply_normal(state);
         }
 
-        uint8_t sBit = maskBits(instruction, 20, 20);
-        if (sBit == 1) {
+        if (state->decoded->isS == 1) {
             if (result == 0) {
-                setFlag(state, 1, Z_POS);
+                setFlag(state, 1, Z_BIT);
             }
-            setFlag(state, maskBits(result, 31, 31), N_POS);
+            setFlag(state, maskBits(result, 31, 31), N_BIT);
         }
 
     }
 }
 
-uint32_t multiply_acc(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm) {
-                      
-    uint8_t rn = maskBits(state->fetched, 15, 12);
+uint32_t multiply_acc(state_t *state) {
     uint32_t result;
 
-    result = state->registers[rs] * state->registers[rm];
-    result += state->registers[rn];
-    state->registers[rd] = result;
+    result = state->registers[state->decoded->rs] * 
+             state->registers[state->decoded->rm];
+             
+    result += state->registers[state->decoded->rn];
+    state->registers[state->decoded->rd] = result;
 
     return result;
 }
 
-uint32_t multiply_normal(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm) {
-    
+uint32_t multiply_normal(state_t *state) {
     uint32_t result;
 
-    result = state->registers[rs] * state->registers[rm];
-    state->registers[rd] = result;
+    result = state->registers[state->decoded->rs] * 
+             state->registers[state->decoded->rm];
+             
+    state->registers[state->decoded->rd] = result;
 
     return result;
 }
@@ -486,7 +478,7 @@ uint32_t multiply_normal(state_t *state, uint8_t rd, uint8_t rs, uint8_t rm) {
 void branch(state_t *state) {
     if (isCondTrue(state) == 1) {
         //get a 24 bit value and shift it left
-        uint32_t mask = maskBits(state->fetched, 23, 0);
+        uint32_t mask = state->decoded->branchOffset;
         mask = mask << 2;
 
         //move it upto 31st bit
@@ -494,7 +486,7 @@ void branch(state_t *state) {
         int32_t offset = mask << 6;
         offset = offset >> 6;
 
-        state->registers[PC] += mask;
+        state->registers[PC_REG] += mask;
     }
 }
 
