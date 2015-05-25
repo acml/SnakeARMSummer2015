@@ -114,17 +114,20 @@ void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
 
-void dproc(state_t *state);
-uint32_t dproc_and(state_t *state, uint32_t operand2);
-uint32_t dproc_eor(state_t *state, uint32_t operand2);
-alu_o dproc_sub(state_t *state, uint32_t operand2);
-alu_o dproc_rsb(state_t *state, uint32_t operand2);
-alu_o dproc_add(state_t *state, uint32_t operand2);
-uint32_t dproc_tst(state_t *state, uint32_t operand2);
-uint32_t dproc_teq(state_t *state, uint32_t operand2);
-alu_o dproc_cmp(state_t *state, uint32_t operand2);
-uint32_t dproc_orr(state_t *state, uint32_t operand2);
-uint32_t dproc_mov(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_and(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_eor(state_t *state, uint32_t operand2);
+alu_o dataProcessing_sub(state_t *state, uint32_t operand2);
+alu_o dataProcessing_rsb(state_t *state, uint32_t operand2);
+alu_o dataProcessing_add(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_tst(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_teq(state_t *state, uint32_t operand2);
+alu_o dataProcessing_cmp(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_orr(state_t *state, uint32_t operand2);
+uint32_t dataProcessing_mov(state_t *state, uint32_t operand2);
+
+uint32_t offestAddress(uint32_t address, int isU, uint32_t offset);
+void ldr(state_t *state, uint32_t address);
+void str(state_t *state, uint32_t address);
 
 int main(int argc, char **argv) {
     state_t *state = newState();
@@ -519,10 +522,6 @@ shift_o shiftedReg(state_t *state) {
     return output;
 }
 
-void dataProcessing(state_t *state) {
-
-}
-
 // Returns the value of operand2
 // if bit I is set, the operand2 is an immediate value rotated right by given
 // number of places.
@@ -530,7 +529,7 @@ void dataProcessing(state_t *state) {
 // rotated by a constant value(if bit4 is cleared) or rotated by a least
 // significant byte of rs
 
-void dproc(state_t *state) {
+void dataProcessing(state_t *state) {
     uint32_t operand2;
     int carry = 0;
     if (state->decoded->isI) {
@@ -544,42 +543,42 @@ void dproc(state_t *state) {
     alu_o output;
     switch (state->decoded->opcode) {
         case AND:
-            result = dproc_and(state, operand2);
+            result = dataProcessing_and(state, operand2);
             break;
         case EOR:
-            result = dproc_eor(state, operand2);
+            result = dataProcessing_eor(state, operand2);
             break;
         case SUB:
-            output = dproc_sub(state, operand2);
+            output = dataProcessing_sub(state, operand2);
             result = output.data;
             carry = output.carry;
             break;
         case RSB:
-            output = dproc_rsb(state, operand2);
+            output = dataProcessing_rsb(state, operand2);
             result = output.data;
             carry = output.carry;
             break;
         case ADD:
-            output = dproc_add(state, operand2);
+            output = dataProcessing_add(state, operand2);
             result = output.data;
             carry = output.carry;
             break;
         case TST:
-            result = dproc_tst(state, operand2);
+            result = dataProcessing_tst(state, operand2);
             break;
         case TEQ:
-            result = dproc_teq(state, operand2);
+            result = dataProcessing_teq(state, operand2);
             break;
         case CMP:
-            output = dproc_cmp(state, operand2);
+            output = dataProcessing_cmp(state, operand2);
             result = output.data;
             carry = output.carry;
             break;
         case ORR:
-            result = dproc_orr(state, operand2);
+            result = dataProcessing_orr(state, operand2);
             break;
         case MOV:
-            result = dproc_mov(state, operand2);
+            result = dataProcessing_mov(state, operand2);
             break;
     }
 
@@ -605,19 +604,19 @@ void dproc(state_t *state) {
 }
 
 // AND rd = operand2 AND rn
-uint32_t dproc_and(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_and(state_t *state, uint32_t operand2) {
     uint32_t result = state->registers[state->decoded->rn] & operand2;
     return result;
 }
 
 // XOR rd = operand2 XOR rn
-uint32_t dproc_eor(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_eor(state_t *state, uint32_t operand2) {
     uint32_t result = state->registers[state->decoded->rn] ^ operand2;
     return result;
 }
 
 // Substraction rd = operand2 - rn, if rn > operand2, carry generated
-alu_o dproc_sub(state_t *state, uint32_t operand2) {
+alu_o dataProcessing_sub(state_t *state, uint32_t operand2) {
     alu_o result;
     result.data = (int32_t) state->registers[state->decoded->rn]
             - (int32_t) operand2;
@@ -626,7 +625,7 @@ alu_o dproc_sub(state_t *state, uint32_t operand2) {
 }
 
 // Substraction rd = operand2 - rn, if rn > operand2, carry generated
-alu_o dproc_rsb(state_t *state, uint32_t operand2) {
+alu_o dataProcessing_rsb(state_t *state, uint32_t operand2) {
     alu_o result;
     result.data = (int32_t) operand2
             - (int32_t) state->registers[state->decoded->rn];
@@ -635,43 +634,43 @@ alu_o dproc_rsb(state_t *state, uint32_t operand2) {
 }
 
 // Additiotion rd = rn + operand2, unsigned overflow sets carry flag
-alu_o dproc_add(state_t *state, uint32_t operand2) {
+alu_o dataProcessing_add(state_t *state, uint32_t operand2) {
     alu_o result;
     result.data = (int32_t) state->registers[state->decoded->rn]
-                                             + (int32_t) operand2;
+            + (int32_t) operand2;
     result.carry = state->registers[state->decoded->rn] > UINT32_MAX - operand2;
     return result;
 }
 
 // Test AND on operand2 and rn, result not saved
-uint32_t dproc_tst(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_tst(state_t *state, uint32_t operand2) {
     uint32_t result = state->registers[state->decoded->rn] & operand2;
     return result;
 }
 
 // Test XOR on operand2 and rn, result not saved
-uint32_t dproc_teq(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_teq(state_t *state, uint32_t operand2) {
     uint32_t result = state->registers[state->decoded->rn] ^ operand2;
     return result;
 }
 
 // Compare rn and operand2, if operand2 if bigger, carry flag is set
-alu_o dproc_cmp(state_t *state, uint32_t operand2) {
+alu_o dataProcessing_cmp(state_t *state, uint32_t operand2) {
     alu_o result;
     result.data = (int32_t) state->registers[state->decoded->rn]
-                                             - (int32_t) operand2;
+            - (int32_t) operand2;
     result.carry = state->registers[state->decoded->rn] >= operand2;
     return result;
 }
 
 // Bitwise or on operand2 and rn, result saved in rd
-uint32_t dproc_orr(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_orr(state_t *state, uint32_t operand2) {
     uint32_t result = state->registers[state->decoded->rn] | operand2;
     return result;
 }
 
 // Moves the operand2 to register rd
-uint32_t dproc_mov(state_t *state, uint32_t operand2) {
+uint32_t dataProcessing_mov(state_t *state, uint32_t operand2) {
     uint32_t result = operand2;
     return result;
 }
@@ -694,8 +693,54 @@ void multiply(state_t *state) {
     }
 }
 
+// Transfers data depending in the conditions
 void singleDataTransfer(state_t *state) {
+    decoded_t *decoded = state->decoded;
 
+    assert(decoded->rm != PC_REG && decoded->rd != PC_REG);
+    assert(decoded->isP || decoded->rm != decoded->rn);
+
+    uint32_t offset;
+    if (decoded->isI) {
+        offset = shiftedReg(state).data;
+    } else {
+        offset = decoded->immValue;
+    }
+    uint32_t address = state->registers[decoded->rn];
+    if (decoded->isP) {
+        address = offestAddress(address, decoded->isU, offset);
+    }
+    if (decoded->rn == PC_REG) {
+        address += PC_AHEAD_BYTES;
+    }
+
+    if (decoded->isL) {
+        ldr(state, address);
+    } else {
+        str(state, address);
+    }
+
+    if (!decoded->isP) {
+        state->registers[decoded->rn] += offset;
+    }
+}
+
+uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
+    if (isU) {
+        return address + offset;
+    } else {
+        return address - offset;
+    }
+}
+
+// Loads data from memory to register
+void ldr(state_t *state, uint32_t address) {
+    state->registers[state->decoded->rd] = state->memory[address];
+}
+
+// Stores data from register to memory
+void str(state_t *state, uint32_t address) {
+    state->memory[address] = state->registers[state->decoded->rd];
 }
 
 void branch(state_t *state) {
