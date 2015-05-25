@@ -6,6 +6,7 @@
 #include <endian.h>
 
 #define BYTES_IN_WORD 4
+#define BITS_IN_WORD 32
 #define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
 #define TOP_BIT 31
@@ -80,6 +81,7 @@ void execut(state_t *state);
 void decode(state_t *state);
 void fetch(state_t *state);
 void incPC(state_t *state);
+
 uint32_t maskBits(uint32_t data, int upper, int lower);
 uint32_t getN(state_t *state);
 uint32_t getZ(state_t *state);
@@ -93,6 +95,8 @@ opcode_t opcodeType(uint32_t ins);
 shift_t shiftType(uint32_t ins);
 
 int checkCond(state_t *state);
+u_int32_t shiftData(u_int32_t data, shift_t shift, u_int32_t shiftValue);
+int shiftCarry(u_int32_t data, shift_t shift, u_int32_t shiftValue);
 
 int main(int argc, char **argv) {
     state_t *state = newState();
@@ -422,4 +426,44 @@ int checkCond(state_t *state) {
         default:
             return 1;
     }
+}
+
+u_int32_t shiftData(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
+    assert(shiftValue < 32);
+    if (shiftValue == 0) {
+        return data;
+    }
+    switch (shift) {
+        case LSL:
+            data <<= shiftValue;
+            break;
+        case LSR:
+            data >>= shiftValue;
+            break;
+        case ASR:
+            data = (int32_t) data >> shiftValue;
+            break;
+        case ROR:
+            data = (data >> shiftValue) | (data << (BITS_IN_WORD - shiftValue));
+            break;
+    }
+    return data;
+}
+int shiftCarry(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
+    assert(shiftValue < 32);
+    if (shiftValue == 0) {
+        return 0;
+    }
+    int carryBit;
+    switch (shift) {
+        case LSL:
+            carryBit = BITS_IN_WORD - shiftValue;
+            break;
+        case LSR:
+        case ASR:
+        case ROR:
+            carryBit = shiftValue - 1;
+            break;
+    }
+    return maskBits(data, carryBit, carryBit);
 }
