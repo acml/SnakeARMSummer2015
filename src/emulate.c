@@ -44,16 +44,16 @@ typedef enum {
 
 typedef struct arm_decoded {
     ins_t ins;
-    u_int32_t rd;
-    u_int32_t rn;
-    u_int32_t rs;
-    u_int32_t rm;
+    uint32_t rd;
+    uint32_t rn;
+    uint32_t rs;
+    uint32_t rm;
     cond_t cond;
     opcode_t opcode;
     shift_t shift;
-    u_int32_t shiftValue;
-    u_int32_t immValue;
-    u_int32_t branchOffest;
+    uint32_t shiftValue;
+    uint32_t immValue;
+    uint32_t branchOffset;
     int isI;
     int isS;
     int isA;
@@ -78,7 +78,7 @@ int readBinary(state_t *state, int argc, char **argv);
 int writeState(state_t *state, char **argv);
 void printRegister(state_t *state, FILE *fp, int reg);
 
-void execut(state_t *state);
+void execute(state_t *state);
 void decode(state_t *state);
 void fetch(state_t *state);
 void incPC(state_t *state);
@@ -96,8 +96,13 @@ opcode_t opcodeType(uint32_t ins);
 shift_t shiftType(uint32_t ins);
 
 int checkCond(state_t *state);
-u_int32_t shiftData(u_int32_t data, shift_t shift, u_int32_t shiftValue);
-int shiftCarry(u_int32_t data, shift_t shift, u_int32_t shiftValue);
+uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
+int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
+
+void dataProcessing(state_t *state);
+void multiply(state_t *state);
+void singleDataTransfer(state_t *state);
+void branch(state_t *state);
 
 int main(int argc, char **argv) {
     state_t *state = newState();
@@ -110,7 +115,7 @@ int main(int argc, char **argv) {
     }
 
     while (!state->isTermainated) {
-        execut(state);
+        execute(state);
         decode(state);
         fetch(state);
         incPC(state);
@@ -233,14 +238,33 @@ void printRegister(state_t *state, FILE *fp, int reg) {
             state->registers[reg]);
 }
 
-void execut(state_t *state) {
+void execute(state_t *state) {
     if (!state->isDecoded) {
         return;
     }
-    if (state->decoded->ins == TERMINATION) {
+
+    decoded_t *decoded = state->decoded;
+    if (!checkCond(state)) {
         return;
     }
 
+    switch (decoded->ins) {
+        case DATA_PROCESSING:
+            dataProcessing(state);
+            break;
+        case MULTIPLY:
+            multiply(state);
+            break;
+        case SINGLE_DATA_TRANSFER:
+            singleDataTransfer(state);
+            break;
+        case BRANCH:
+            branch(state);
+            break;
+        case TERMINATION:
+            state->isTermainated = 1;
+            return;
+    }
 }
 
 void decode(state_t *state) {
@@ -249,14 +273,14 @@ void decode(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
-    u_int32_t ins = state->fetched;
+    uint32_t ins = state->fetched;
 
     decoded->ins = insTpye(ins);
 
     decoded->rd = maskBits(ins, 15, 12);
     decoded->rn = maskBits(ins, 19, 16);
     if (decoded->ins == MULTIPLY) {
-        u_int32_t tmp = decoded->rd;
+        uint32_t tmp = decoded->rd;
         decoded->rd = decoded->rn;
         decoded->rn = tmp;
     }
@@ -268,14 +292,14 @@ void decode(state_t *state) {
     decoded->shift = shiftType(ins);
     decoded->shiftValue = maskBits(ins, 11, 7);
     if (decoded->ins == DATA_PROCESSING) {
-        u_int32_t data = maskBits(ins, 7, 0);
-        u_int32_t shiftValue = maskBits(ins, 11, 8) * 2;
+        uint32_t data = maskBits(ins, 7, 0);
+        uint32_t shiftValue = maskBits(ins, 11, 8) * 2;
         decoded->immValue = shiftData(data, ROR, shiftValue);
     } else {
         decoded->immValue = maskBits(ins, 11, 0);
     }
-    u_int32_t data = maskBits(ins, 23, 0);
-    decoded->branchOffest = shiftData(shiftData(data, LSL, 8), ASR,
+    uint32_t data = maskBits(ins, 23, 0);
+    decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR,
             6) - PC_AHEAD_BYTES;
 
     decoded->isI = maskBits(ins, I_BIT, I_BIT);
@@ -299,13 +323,9 @@ void incPC(state_t *state) {
 
 uint32_t maskBits(uint32_t data, int upper, int lower) {
     assert(upper >= lower && upper <= 31 && lower >= 0);
-    if (upper == lower) {
-        return (data >> upper) & 1;
-    } else {
-        data <<= TOP_BIT - upper;
-        data >>= TOP_BIT - (upper - lower);
-        return data;
-    }
+    data <<= TOP_BIT - upper;
+    data >>= TOP_BIT - (upper - lower);
+    return data;
 }
 
 uint32_t getN(state_t *state) {
@@ -351,7 +371,7 @@ ins_t insTpye(uint32_t ins) {
 }
 
 cond_t condTpye(uint32_t ins) {
-    u_int32_t condBits = maskBits(ins, 31, 28);
+    uint32_t condBits = maskBits(ins, 31, 28);
     switch (condBits) {
         case 0:
             return EQ;
@@ -372,7 +392,7 @@ cond_t condTpye(uint32_t ins) {
 }
 
 opcode_t opcodeType(uint32_t ins) {
-    u_int32_t opcodeBits = maskBits(ins, 24, 21);
+    uint32_t opcodeBits = maskBits(ins, 24, 21);
     switch (opcodeBits) {
         case 0:
             return AND;
@@ -399,7 +419,7 @@ opcode_t opcodeType(uint32_t ins) {
 }
 
 shift_t shiftType(uint32_t ins) {
-    u_int32_t shiftBits = maskBits(ins, 6, 5);
+    uint32_t shiftBits = maskBits(ins, 6, 5);
     switch (shiftBits) {
         case 0:
             return LSL;
@@ -414,8 +434,7 @@ shift_t shiftType(uint32_t ins) {
 }
 
 int checkCond(state_t *state) {
-    uint32_t flagBits = maskBits(state->fetched, N_BIT, V_BIT);
-    switch (flagBits) {
+    switch (state->decoded->cond) {
         case EQ:
             return getZ(state);
         case NE:
@@ -433,7 +452,7 @@ int checkCond(state_t *state) {
     }
 }
 
-u_int32_t shiftData(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
+uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue) {
     assert(shiftValue < 32);
     if (shiftValue == 0) {
         return data;
@@ -454,7 +473,8 @@ u_int32_t shiftData(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
     }
     return data;
 }
-int shiftCarry(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
+
+int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
     assert(shiftValue < 32);
     if (shiftValue == 0) {
         return 0;
@@ -471,4 +491,20 @@ int shiftCarry(u_int32_t data, shift_t shift, u_int32_t shiftValue) {
             break;
     }
     return maskBits(data, carryBit, carryBit);
+}
+
+void dataProcessing(state_t *state) {
+
+}
+
+void multiply(state_t *state) {
+
+}
+
+void singleDataTransfer(state_t *state) {
+
+}
+
+void branch(state_t *state) {
+    state->registers[PC_REG] += state->decoded->branchOffset;
 }
