@@ -290,9 +290,13 @@ void incPC(state_t *state) {
 
 uint32_t maskBits(uint32_t data, int upper, int lower) {
     assert(upper >= lower && upper <= 31 && lower >= 0);
-    data <<= TOP_BIT - upper;
-    data >>= TOP_BIT - (upper - lower);
-    return data;
+    if (upper == lower) {
+        return (data >> upper) & 1;
+    } else {
+        data <<= TOP_BIT - upper;
+        data >>= TOP_BIT - (upper - lower);
+        return data;
+    }
 }
 
 uint32_t getN(state_t *state) {
@@ -312,11 +316,8 @@ uint32_t getV(state_t *state) {
 }
 
 void setFlag(state_t *state, int val, int flag) {
-    if (val) {
-        state->registers[CPSR_REG] |= 1 << flag;
-    } else {
-        state->registers[CPSR_REG] &= ~(1 << flag);
-    }
+    state->registers[CPSR_REG] ^= (-val ^ state->registers[CPSR_REG])
+            & (1 << flag);
 }
 
 ins_t insTpye(uint32_t ins) {
