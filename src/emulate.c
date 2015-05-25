@@ -498,7 +498,21 @@ void dataProcessing(state_t *state) {
 }
 
 void multiply(state_t *state) {
+    decoded_t *decoded = state->decoded;
 
+    uint32_t result = state->registers[decoded->rs] *
+            state->registers[decoded->rm];
+    if (decoded->isA) {
+        result += state->registers[decoded->rn];
+    }
+    state->registers[state->decoded->rd] = result;
+
+    if (decoded->isS) {
+        if (result == 0) {
+            setFlag(state, 1, Z_BIT);
+        }
+        setFlag(state, maskBits(result, TOP_BIT, TOP_BIT), N_BIT);
+    }
 }
 
 void singleDataTransfer(state_t *state) {
