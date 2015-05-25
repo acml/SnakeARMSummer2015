@@ -20,7 +20,41 @@
 #define PC_REG 15
 #define CPSR_REG 16
 
+typedef enum {
+    DATA_PROCESSING, MULTIPLY, SINGLE_DATA_TRANSFER, BRANCH, TERMINATION
+} ins_t;
+
+typedef enum {
+    AND, EOR, SUB,  RSB, ADD, TST, TEQ, CMP, ORR, MOV
+} opcode_t;
+
+typedef enum {
+    LSL, LSR, ASR, ROR
+} shift_t;
+
+
+typedef struct arm_decoded {
+    ins_t type;
+    u_int32_t cond;
+    u_int32_t rd;
+    u_int32_t rn;
+    u_int32_t rs;
+    u_int32_t rm;
+    opcode_t OpCode;
+    u_int32_t offest;
+    u_int32_t op2;
+    shift_t shift;
+    u_int32_t shiftValue;
+    int isI;
+    int isS;
+    int isA;
+    int isP;
+    int isU;
+    int isL;
+} decoded_t;
+
 typedef struct arm_state {
+    decoded_t *decoded;
     uint32_t fetched;
     uint32_t *registers;
     uint32_t *memory;
@@ -28,10 +62,6 @@ typedef struct arm_state {
     int isFetched;
     int isTermainated;
 } state_t;
-
-typedef enum {
-    DATA_PROCESSING, MULTIPLY, SINGLE_DATA_TRANSFER, BRANCH
-} ins_t;
 
 state_t *newState(void);
 void delState(state_t *state);
@@ -84,8 +114,15 @@ state_t *newState(void) {
         return NULL;
     }
 
+    state->decoded = malloc(sizeof(decoded_t));
+    if (state->decoded == NULL) {
+        free(state);
+        return NULL;
+    }
+
     state->registers = malloc(REGISTERS_COUNT * sizeof(uint32_t));
     if (state->registers == NULL) {
+        free(state->decoded);
         free(state);
         return NULL;
     }
@@ -93,6 +130,7 @@ state_t *newState(void) {
 
     state->memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
     if (state->memory == NULL) {
+        free(state->decoded);
         free(state->registers);
         free(state);
         return NULL;
@@ -108,6 +146,7 @@ state_t *newState(void) {
 
 void delState(state_t *state) {
     if (state != NULL) {
+        free(state->decoded);
         free(state->registers);
         free(state->memory);
         free(state);
@@ -158,7 +197,8 @@ int writeState(state_t *state, char **argv) {
     fprintf(fp, "Non-zero memory:\n");
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (state->memory[i] != 0) {
-            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, state->memory[i]);
+            fprintf(fp, "0x%08x: 0x%08x\n",
+                    i * BYTES_IN_WORD, state->memory[i]);
         }
     }
 
@@ -174,21 +214,26 @@ void printRegister(state_t *state, FILE *fp, int reg) {
     } else {
         fprintf(fp, "$%d\t:", reg);
     }
-    fprintf(fp, "% 11d (0x%08x)\n", state->registers[reg],
-            state->registers[reg]);
+    fprintf(fp, "% 11d (0x%08x)\n",
+            state->registers[reg], state->registers[reg]);
 }
 
 void execut(state_t *state) {
-    if (state->isDecoded) {
-
+    if (!state->isDecoded) {
+        return;
     }
+    if (state->decoded->type == TERMINATION) {
+        return;
+    }
+
 }
 
 void decode(state_t *state) {
-    if (state->isFetched) {
-
-        state->isDecoded = 1;
+    if (!state->isFetched) {
+        return;
     }
+
+    state->isDecoded = 1;
 }
 
 void fetch(state_t *state) {
@@ -232,6 +277,9 @@ void setFlag(state_t *state, int val, int flag) {
 }
 
 ins_t insTpye(state_t *state) {
+    if (state->fetched == 0) {
+        return TERMINATION;
+    }
     uint32_t typeBits = maskBits(state->fetched, 27, 26);
     if (typeBits == 1) {
         return SINGLE_DATA_TRANSFER;
