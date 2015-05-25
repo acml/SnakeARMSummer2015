@@ -210,16 +210,18 @@ int readBinary(state_t *state, int argc, char **argv) {
         return 0;
     }
 
-    uint32_t *word = malloc(sizeof(uint32_t));
-    if (word == NULL) {
-        return 0;
-    }
-    int i = 0;
-    while (fread(word, sizeof(uint32_t), 1, fp)) {
-        state->memory[i] = be32toh(*word);
-        i++;
-    }
-    free(word);
+//    uint32_t *word = malloc(sizeof(uint32_t));
+//    if (word == NULL) {
+//        return 0;
+//    }
+//    int i = 0;
+//    while (fread(word, sizeof(uint32_t), 1, fp)) {
+//        state->memory[i] = be32toh(*word);
+//        i++;
+//    }
+//    free(word);
+
+    fread(state->memory, sizeof(uint32_t), MEMORY_SIZE, fp);
 
     fclose(fp);
     return 1;
@@ -243,7 +245,7 @@ int writeState(state_t *state, char **argv) {
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (state->memory[i] != 0) {
             fprintf(fp, "0x%08x: 0x%08x\n", i * BYTES_IN_WORD,
-                    state->memory[i]);
+                    be32toh(state->memory[i]));
         }
     }
 
@@ -269,6 +271,11 @@ void execute(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
+    if (decoded->ins == TERMINATION) {
+        state->isTermainated = 1;
+        return;
+    }
+
     if (!checkCond(state)) {
         return;
     }
@@ -286,14 +293,14 @@ void execute(state_t *state) {
         case BRANCH:
             branch(state);
             break;
-        case TERMINATION:
-            state->isTermainated = 1;
-            return;
+        default:
+            break;
     }
 }
 
 void decode(state_t *state) {
     if (!state->isFetched) {
+        state->isDecoded = 0;
         return;
     }
 
