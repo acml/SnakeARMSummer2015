@@ -24,6 +24,7 @@
 #define LR_REG 14
 #define PC_REG 15
 #define CPSR_REG 16
+#define PC_AHEAD_BYTES 8
 
 typedef enum {
     DATA_PROCESSING, MULTIPLY, SINGLE_DATA_TRANSFER, BRANCH, TERMINATION
@@ -267,11 +268,15 @@ void decode(state_t *state) {
     decoded->shift = shiftType(ins);
     decoded->shiftValue = maskBits(ins, 11, 7);
     if (decoded->ins == DATA_PROCESSING) {
-        //TODO
+        u_int32_t data = maskBits(ins, 7, 0);
+        u_int32_t shiftValue = maskBits(ins, 11, 8) * 2;
+        decoded->immValue = shiftData(data, ROR, shiftValue);
     } else {
         decoded->immValue = maskBits(ins, 11, 0);
     }
-    //TODO decoded->branchOffest =
+    u_int32_t data = maskBits(ins, 23, 0);
+    decoded->branchOffest = shiftData(shiftData(data, LSL, 8), ASR,
+            6) - PC_AHEAD_BYTES;
 
     decoded->isI = maskBits(ins, I_BIT, I_BIT);
     decoded->isS = maskBits(ins, S_BIT, S_BIT);
