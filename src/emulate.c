@@ -8,13 +8,17 @@
 #define BYTES_IN_WORD 4
 #define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
-#define GENERAL_REG_COUNT 13
 #define TOP_BIT 31
 #define N_BIT 31
 #define Z_BIT 30
 #define C_BIT 29
 #define V_BIT 28
 #define I_BIT 25
+#define S_BIT 20
+#define A_BIT 21
+#define P_BIT 24
+#define U_BIT 23
+#define L_BIT 23
 #define SP_REG 13
 #define LR_REG 14
 #define PC_REG 15
@@ -25,26 +29,28 @@ typedef enum {
 } ins_t;
 
 typedef enum {
-    AND, EOR, SUB,  RSB, ADD, TST, TEQ, CMP, ORR, MOV
+    EQ, NE, GE, LT, GT, LE, AL
+} cond_t;
+
+typedef enum {
+    AND, EOR, SUB, RSB, ADD, TST, TEQ, CMP, ORR, MOV
 } opcode_t;
 
 typedef enum {
     LSL, LSR, ASR, ROR
 } shift_t;
 
-
 typedef struct arm_decoded {
     ins_t type;
-    u_int32_t cond;
+    cond_t cond;
     u_int32_t rd;
     u_int32_t rn;
     u_int32_t rs;
     u_int32_t rm;
-    opcode_t OpCode;
-    u_int32_t offest;
-    u_int32_t op2;
+    opcode_t opcode;
     shift_t shift;
     u_int32_t shiftValue;
+    u_int32_t offest;
     int isI;
     int isS;
     int isA;
@@ -80,7 +86,10 @@ uint32_t getC(state_t *state);
 uint32_t getV(state_t *state);
 void setFlag(state_t *state, int val, int flag);
 
-ins_t insTpye(state_t *state);
+ins_t insTpye(uint32_t ins);
+cond_t condTpye(uint32_t ins);
+opcode_t opcodeType(uint32_t ins);
+shift_t shiftType(uint32_t ins);
 
 int checkCond(state_t *state);
 
@@ -197,8 +206,8 @@ int writeState(state_t *state, char **argv) {
     fprintf(fp, "Non-zero memory:\n");
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (state->memory[i] != 0) {
-            fprintf(fp, "0x%08x: 0x%08x\n",
-                    i * BYTES_IN_WORD, state->memory[i]);
+            fprintf(fp, "0x%08x: 0x%08x\n", i * BYTES_IN_WORD,
+                    state->memory[i]);
         }
     }
 
@@ -214,8 +223,8 @@ void printRegister(state_t *state, FILE *fp, int reg) {
     } else {
         fprintf(fp, "$%d\t:", reg);
     }
-    fprintf(fp, "% 11d (0x%08x)\n",
-            state->registers[reg], state->registers[reg]);
+    fprintf(fp, "% 11d (0x%08x)\n", state->registers[reg],
+            state->registers[reg]);
 }
 
 void execut(state_t *state) {
@@ -232,6 +241,10 @@ void decode(state_t *state) {
     if (!state->isFetched) {
         return;
     }
+
+    decoded_t *decoded = state->decoded;
+    u_int32_t ins = state->fetched;
+    decoded->type = insTpye(ins);
 
     state->isDecoded = 1;
 }
@@ -276,19 +289,19 @@ void setFlag(state_t *state, int val, int flag) {
     }
 }
 
-ins_t insTpye(state_t *state) {
-    if (state->fetched == 0) {
+ins_t insTpye(uint32_t ins) {
+    if (ins == 0) {
         return TERMINATION;
     }
-    uint32_t typeBits = maskBits(state->fetched, 27, 26);
+    uint32_t typeBits = maskBits(ins, 27, 26);
     if (typeBits == 1) {
         return SINGLE_DATA_TRANSFER;
     } else if (typeBits == 2) {
         return BRANCH;
     } else {
-        uint32_t bitI = maskBits(state->fetched, I_BIT, I_BIT);
-        uint32_t bit4 = maskBits(state->fetched, 4, 4);
-        uint32_t bit7 = maskBits(state->fetched, 7, 7);
+        uint32_t bitI = maskBits(ins, I_BIT, I_BIT);
+        uint32_t bit4 = maskBits(ins, 4, 4);
+        uint32_t bit7 = maskBits(ins, 7, 7);
         if (bitI == 0 && bit4 == 1 && bit7 == 1) {
             return MULTIPLY;
         } else {
@@ -297,20 +310,83 @@ ins_t insTpye(state_t *state) {
     }
 }
 
-int checkCond(state_t *state) {
-    uint32_t condBits = maskBits(state->fetched, N_BIT, V_BIT);
+cond_t condTpye(uint32_t ins) {
+    u_int32_t condBits = maskBits(ins, 31, 28);
     switch (condBits) {
         case 0:
-            return getZ(state);
+            return EQ;
         case 1:
-            return !getZ(state);
+            return NE;
         case 10:
-            return getN(state) == getV(state);
+            return GE;
         case 11:
-            return getN(state) != getV(state);
+            return LT;
         case 12:
-            return !getZ(state) && getN(state) == getV(state);
+            return GT;
         case 13:
+            return LE;
+        case 14:
+            return AL;
+    }
+    return -1;
+}
+
+opcode_t opcodeType(uint32_t ins) {
+    u_int32_t opcodeBits = maskBits(ins, 24, 21);
+    switch (opcodeBits) {
+        case 0:
+            return AND;
+        case 1:
+            return EOR;
+        case 2:
+            return SUB;
+        case 3:
+            return RSB;
+        case 4:
+            return ADD;
+        case 8:
+            return TST;
+        case 9:
+            return TEQ;
+        case 10:
+            return CMP;
+        case 12:
+            return ORR;
+        case 13:
+            return MOV;
+    }
+    return -1;
+}
+
+shift_t shiftType(uint32_t ins) {
+    u_int32_t shiftBits = maskBits(ins, 6, 5);
+    switch (shiftBits) {
+        case 0:
+            return LSL;
+        case 1:
+            return LSR;
+        case 2:
+            return ASR;
+        case 3:
+            return ROR;
+    }
+    return -1;
+}
+
+int checkCond(state_t *state) {
+    uint32_t flagBits = maskBits(state->fetched, N_BIT, V_BIT);
+    switch (flagBits) {
+        case EQ:
+            return getZ(state);
+        case NE:
+            return !getZ(state);
+        case GE:
+            return getN(state) == getV(state);
+        case LT:
+            return getN(state) != getV(state);
+        case GT:
+            return !getZ(state) && getN(state) == getV(state);
+        case LE:
             return getZ(state) || getN(state) != getV(state);
         default:
             return 1;
