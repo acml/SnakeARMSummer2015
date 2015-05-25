@@ -41,16 +41,17 @@ typedef enum {
 } shift_t;
 
 typedef struct arm_decoded {
-    ins_t type;
-    cond_t cond;
+    ins_t ins;
     u_int32_t rd;
     u_int32_t rn;
     u_int32_t rs;
     u_int32_t rm;
+    cond_t cond;
     opcode_t opcode;
     shift_t shift;
     u_int32_t shiftValue;
-    u_int32_t offest;
+    u_int32_t immValue;
+    u_int32_t branchOffest;
     int isI;
     int isS;
     int isA;
@@ -231,7 +232,7 @@ void execut(state_t *state) {
     if (!state->isDecoded) {
         return;
     }
-    if (state->decoded->type == TERMINATION) {
+    if (state->decoded->ins == TERMINATION) {
         return;
     }
 
@@ -244,7 +245,36 @@ void decode(state_t *state) {
 
     decoded_t *decoded = state->decoded;
     u_int32_t ins = state->fetched;
-    decoded->type = insTpye(ins);
+
+    decoded->ins = insTpye(ins);
+
+    decoded->rd = maskBits(ins, 15, 12);
+    decoded->rn = maskBits(ins, 19, 16);
+    if (decoded->ins == MULTIPLY) {
+        u_int32_t tmp = decoded->rd;
+        decoded->rd = decoded->rn;
+        decoded->rn = tmp;
+    }
+    decoded->rs = maskBits(ins, 11, 8);
+    decoded->rm = maskBits(ins, 3, 0);
+
+    decoded->cond = condTpye(ins);
+    decoded->opcode = opcodeType(ins);
+    decoded->shift = shiftType(ins);
+    decoded->shiftValue = maskBits(ins, 11, 7);
+    if (decoded->ins == DATA_PROCESSING) {
+        //TODO
+    } else {
+        decoded->immValue = maskBits(ins, 11, 0);
+    }
+    //TODO decoded->branchOffest =
+
+    decoded->isI = maskBits(ins, I_BIT, I_BIT);
+    decoded->isS = maskBits(ins, S_BIT, S_BIT);
+    decoded->isA = maskBits(ins, A_BIT, A_BIT);
+    decoded->isP = maskBits(ins, P_BIT, P_BIT);
+    decoded->isU = maskBits(ins, U_BIT, U_BIT);
+    decoded->isL = maskBits(ins, L_BIT, L_BIT);
 
     state->isDecoded = 1;
 }
@@ -293,10 +323,10 @@ ins_t insTpye(uint32_t ins) {
     if (ins == 0) {
         return TERMINATION;
     }
-    uint32_t typeBits = maskBits(ins, 27, 26);
-    if (typeBits == 1) {
+    uint32_t insBits = maskBits(ins, 27, 26);
+    if (insBits == 1) {
         return SINGLE_DATA_TRANSFER;
-    } else if (typeBits == 2) {
+    } else if (insBits == 2) {
         return BRANCH;
     } else {
         uint32_t bitI = maskBits(ins, I_BIT, I_BIT);
