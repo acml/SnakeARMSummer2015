@@ -68,7 +68,7 @@ typedef struct arm_state {
     decoded_t *decoded;
     uint32_t fetched;
     uint32_t *registers;
-    uint32_t *memory;
+    uint8_t *memory;
     int isDecoded;
     int isFetched;
     int isTermainated;
@@ -129,6 +129,8 @@ uint32_t offestAddress(uint32_t address, int isU, uint32_t offset);
 void ldr(state_t *state, uint32_t address);
 void str(state_t *state, uint32_t address);
 
+uint32_t bytesToWord(uint8_t *bytes);
+
 int main(int argc, char **argv) {
     state_t *state = newState();
     if (state == NULL) {
@@ -141,9 +143,11 @@ int main(int argc, char **argv) {
 
     while (!state->isTermainated) {
         execute(state);
-        decode(state);
-        fetch(state);
-        incPC(state);
+        if (!state->isTermainated) {
+            decode(state);
+            fetch(state);
+            incPC(state);
+        }
     }
 
     if (!writeState(state, argv)) {
@@ -173,14 +177,14 @@ state_t *newState(void) {
     }
     memset(state->registers, 0, REGISTERS_COUNT * sizeof(uint32_t));
 
-    state->memory = malloc(MEMORY_SIZE * sizeof(uint32_t));
+    state->memory = malloc(MEMORY_SIZE * sizeof(uint8_t));
     if (state->memory == NULL) {
         free(state->decoded);
         free(state->registers);
         free(state);
         return NULL;
     }
-    memset(state->memory, 0, MEMORY_SIZE * sizeof(uint32_t));
+    memset(state->memory, 0, MEMORY_SIZE * sizeof(uint8_t));
 
     state->fetched = 0;
     state->isDecoded = 0;
@@ -221,11 +225,37 @@ int readBinary(state_t *state, int argc, char **argv) {
 //    }
 //    free(word);
 
-    fread(state->memory, sizeof(uint32_t), MEMORY_SIZE, fp);
+    fread(state->memory, sizeof(uint8_t), MEMORY_SIZE, fp);
 
     fclose(fp);
     return 1;
 }
+
+//int writeState(state_t *state, char **argv) {
+//    FILE *fp = fopen(strcat(argv[1], ".out"), "w");
+//    if (fp == NULL) {
+//        printf("Could not open output file.\n");
+//        return 0;
+//    }
+//
+//    fprintf(fp, "Registers:\n");
+//    for (int i = 0; i < REGISTERS_COUNT; i++) {
+//        if (i != SP_REG && i != LR_REG) {
+//            printRegister(state, fp, i);
+//        }
+//    }
+//
+//    fprintf(fp, "Non-zero memory:\n");
+//    uint32_t *word = (uint32_t *)state->memory;
+//    for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
+//        if (word[i] != 0) {
+//            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, be32toh(word[i]));
+//        }
+//    }
+//
+//    fclose(fp);
+//    return 1;
+//}
 
 int writeState(state_t *state, char **argv) {
     FILE *fp = fopen(strcat(argv[1], ".out"), "w");
@@ -233,7 +263,7 @@ int writeState(state_t *state, char **argv) {
         printf("Could not open output file.\n");
         return 0;
     }
-
+    fp = stdout;
     fprintf(fp, "Registers:\n");
     for (int i = 0; i < REGISTERS_COUNT; i++) {
         if (i != SP_REG && i != LR_REG) {
@@ -242,10 +272,10 @@ int writeState(state_t *state, char **argv) {
     }
 
     fprintf(fp, "Non-zero memory:\n");
-    for (int i = 0; i < MEMORY_SIZE; i++) {
-        if (state->memory[i] != 0) {
-            fprintf(fp, "0x%08x: 0x%08x\n", i * BYTES_IN_WORD,
-                    be32toh(state->memory[i]));
+    uint32_t *word = (uint32_t *) state->memory;
+    for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
+        if (word[i] != 0) {
+            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, be32toh(word[i]));
         }
     }
 
@@ -255,11 +285,11 @@ int writeState(state_t *state, char **argv) {
 
 void printRegister(state_t *state, FILE *fp, int reg) {
     if (reg == PC_REG) {
-        fprintf(fp, "PC\t:");
+        fprintf(fp, "PC  :");
     } else if (reg == CPSR_REG) {
         fprintf(fp, "CPSR:");
     } else {
-        fprintf(fp, "$%d\t:", reg);
+        fprintf(fp, "$%-3d:", reg);
     }
     fprintf(fp, "% 11d (0x%08x)\n", state->registers[reg],
             state->registers[reg]);
@@ -332,8 +362,7 @@ void decode(state_t *state) {
         decoded->immValue = maskBits(ins, 11, 0);
     }
     uint32_t data = maskBits(ins, 23, 0);
-    decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR,
-            6) - PC_AHEAD_BYTES;
+    decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
 
     decoded->isI = maskBits(ins, I_BIT, I_BIT);
     decoded->isS = maskBits(ins, S_BIT, S_BIT);
@@ -346,7 +375,8 @@ void decode(state_t *state) {
 }
 
 void fetch(state_t *state) {
-    state->fetched = state->memory[state->registers[PC_REG]];
+    uint32_t *word = (uint32_t *) state->memory;
+    state->fetched = word[state->registers[PC_REG] / BYTES_IN_WORD];
     state->isFetched = 1;
 }
 
@@ -524,8 +554,10 @@ shift_o shiftedReg(state_t *state) {
         shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
     }
     shift_o output;
-    output.data = shiftData(decoded->rm, decoded->shift, shiftValue);
-    output.carry = shiftCarry(decoded->rm, decoded->shift, shiftValue);
+    output.data = shiftData(state->registers[decoded->rm], decoded->shift,
+            shiftValue);
+    output.carry = shiftCarry(state->registers[decoded->rm], decoded->shift,
+            shiftValue);
     return output;
 }
 
@@ -742,14 +774,20 @@ uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
 
 // Loads data from memory to register
 void ldr(state_t *state, uint32_t address) {
-    state->registers[state->decoded->rd] = state->memory[address];
+    state->registers[state->decoded->rd] = bytesToWord(&state->memory[address]);
 }
 
 // Stores data from register to memory
 void str(state_t *state, uint32_t address) {
-    state->memory[address] = state->registers[state->decoded->rd];
+    uint32_t *word = (uint32_t *) &state->memory[address];
+    *word = state->registers[state->decoded->rd];
 }
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
 }
+
+uint32_t bytesToWord(uint8_t *bytes) {
+    return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
+}
+
