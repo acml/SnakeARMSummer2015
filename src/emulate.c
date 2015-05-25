@@ -20,7 +20,7 @@
 #define A_BIT 21
 #define P_BIT 24
 #define U_BIT 23
-#define L_BIT 23
+#define L_BIT 20
 #define SP_REG 13
 #define LR_REG 14
 #define PC_REG 15
@@ -291,7 +291,7 @@ void printRegister(state_t *state, FILE *fp, int reg) {
     } else {
         fprintf(fp, "$%-3d:", reg);
     }
-    fprintf(fp, "% 11d (0x%08x)\n", state->registers[reg],
+    fprintf(fp, " %10d (0x%08x)\n", state->registers[reg],
             state->registers[reg]);
 }
 
@@ -322,6 +322,7 @@ void execute(state_t *state) {
             break;
         case BRANCH:
             branch(state);
+
             break;
         default:
             break;
@@ -745,14 +746,19 @@ void singleDataTransfer(state_t *state) {
     } else {
         offset = decoded->immValue;
     }
-    uint32_t address = state->registers[decoded->rn];
+    uint32_t address = state->registers[state->decoded->rn];
     if (decoded->isP) {
         address = offestAddress(address, decoded->isU, offset);
     }
-    if (decoded->rn == PC_REG) {
-        address += PC_AHEAD_BYTES;
+    //TODO might be broken
+    else if (decoded->rn == PC_REG) {
+        //address += PC_AHEAD_BYTES;
     }
 
+    if (address > MEMORY_SIZE) {
+    	printf("Error: Out of bounds memory access at address 0x%08x\n", address);
+    	return;
+    }
     if (decoded->isL) {
         ldr(state, address);
     } else {
@@ -765,7 +771,8 @@ void singleDataTransfer(state_t *state) {
 }
 
 uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
-    if (isU) {
+
+	if (isU) {
         return address + offset;
     } else {
         return address - offset;
@@ -785,6 +792,11 @@ void str(state_t *state, uint32_t address) {
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
+
+    //TODO this might be broken
+    state->isDecoded = 0;
+    state->isFetched = 0;
+
 }
 
 uint32_t bytesToWord(uint8_t *bytes) {
