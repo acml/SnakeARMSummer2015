@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <endian.h>
+#include <limits.h>
 
 #define BYTES_IN_WORD 4
 #define BITS_IN_WORD 32
@@ -52,6 +53,7 @@ typedef struct arm_decoded {
     opcode_t opcode;
     shift_t shift;
     uint32_t shiftValue;
+    int isRegShiftValue;
     uint32_t immValue;
     uint32_t branchOffset;
     int isI;
@@ -72,6 +74,16 @@ typedef struct arm_state {
     int isTermainated;
 } state_t;
 
+typedef struct shift_output {
+    uint32_t data;
+    int carry;
+} shift_o;
+
+typedef struct alu_output {
+    uint32_t data;
+    int carry;
+} alu_o;
+
 state_t *newState(void);
 void delState(state_t *state);
 int readBinary(state_t *state, int argc, char **argv);
@@ -84,10 +96,7 @@ void fetch(state_t *state);
 void incPC(state_t *state);
 
 uint32_t maskBits(uint32_t data, int upper, int lower);
-uint32_t getN(state_t *state);
-uint32_t getZ(state_t *state);
-uint32_t getC(state_t *state);
-uint32_t getV(state_t *state);
+uint32_t getFLag(state_t *state, int flag);
 void setFlag(state_t *state, int val, int flag);
 
 ins_t insTpye(uint32_t ins);
@@ -98,11 +107,24 @@ shift_t shiftType(uint32_t ins);
 int checkCond(state_t *state);
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
 int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
+shift_o shiftedReg(state_t *state);
 
 void dataProcessing(state_t *state);
 void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
+
+void dproc(state_t *state);
+uint32_t dproc_and(state_t *state, uint32_t operand2);
+uint32_t dproc_eor(state_t *state, uint32_t operand2);
+alu_o dproc_sub(state_t *state, uint32_t operand2);
+alu_o dproc_rsb(state_t *state, uint32_t operand2);
+alu_o dproc_add(state_t *state, uint32_t operand2);
+uint32_t dproc_tst(state_t *state, uint32_t operand2);
+uint32_t dproc_teq(state_t *state, uint32_t operand2);
+alu_o dproc_cmp(state_t *state, uint32_t operand2);
+uint32_t dproc_orr(state_t *state, uint32_t operand2);
+uint32_t dproc_mov(state_t *state, uint32_t operand2);
 
 int main(int argc, char **argv) {
     state_t *state = newState();
@@ -291,6 +313,7 @@ void decode(state_t *state) {
     decoded->opcode = opcodeType(ins);
     decoded->shift = shiftType(ins);
     decoded->shiftValue = maskBits(ins, 11, 7);
+    decoded->isRegShiftValue = maskBits(ins, 4, 4);
     if (decoded->ins == DATA_PROCESSING) {
         uint32_t data = maskBits(ins, 7, 0);
         uint32_t shiftValue = maskBits(ins, 11, 8) * 2;
@@ -328,20 +351,8 @@ uint32_t maskBits(uint32_t data, int upper, int lower) {
     return data;
 }
 
-uint32_t getN(state_t *state) {
-    return maskBits(state->registers[CPSR_REG], N_BIT, N_BIT);
-}
-
-uint32_t getZ(state_t *state) {
-    return maskBits(state->registers[CPSR_REG], Z_BIT, Z_BIT);
-}
-
-uint32_t getC(state_t *state) {
-    return maskBits(state->registers[CPSR_REG], C_BIT, C_BIT);
-}
-
-uint32_t getV(state_t *state) {
-    return maskBits(state->registers[CPSR_REG], V_BIT, V_BIT);
+uint32_t getFLag(state_t *state, int flag) {
+    return maskBits(state->registers[CPSR_REG], flag, flag);
 }
 
 void setFlag(state_t *state, int val, int flag) {
@@ -436,17 +447,19 @@ shift_t shiftType(uint32_t ins) {
 int checkCond(state_t *state) {
     switch (state->decoded->cond) {
         case EQ:
-            return getZ(state);
+            return getFLag(state, Z_BIT);
         case NE:
-            return !getZ(state);
+            return !getFLag(state, Z_BIT);
         case GE:
-            return getN(state) == getV(state);
+            return getFLag(state, N_BIT) == getFLag(state, V_BIT);
         case LT:
-            return getN(state) != getV(state);
+            return getFLag(state, N_BIT) != getFLag(state, V_BIT);
         case GT:
-            return !getZ(state) && getN(state) == getV(state);
+            return !getFLag(state, Z_BIT)
+                    && getFLag(state, N_BIT) == getFLag(state, V_BIT);
         case LE:
-            return getZ(state) || getN(state) != getV(state);
+            return getFLag(state, Z_BIT)
+                    || getFLag(state, N_BIT) != getFLag(state, V_BIT);
         default:
             return 1;
     }
@@ -493,15 +506,181 @@ int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
     return maskBits(data, carryBit, carryBit);
 }
 
+shift_o shiftedReg(state_t *state) {
+    decoded_t *decoded = state->decoded;
+
+    uint32_t shiftValue = decoded->shiftValue;
+    if (decoded->isRegShiftValue) {
+        shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
+    }
+    shift_o output;
+    output.data = shiftData(decoded->rm, decoded->shift, shiftValue);
+    output.carry = shiftCarry(decoded->rm, decoded->shift, shiftValue);
+    return output;
+}
+
 void dataProcessing(state_t *state) {
 
+}
+
+// Returns the value of operand2
+// if bit I is set, the operand2 is an immediate value rotated right by given
+// number of places.
+// if bit I is cleared, the operand2 is specified by a register rm. It is either
+// rotated by a constant value(if bit4 is cleared) or rotated by a least
+// significant byte of rs
+
+void dproc(state_t *state) {
+    uint32_t operand2;
+    int carry = 0;
+    if (state->decoded->isI) {
+        operand2 = state->decoded->immValue;
+    } else {
+        shift_o output = shiftedReg(state);
+        operand2 = output.data;
+        carry = output.carry;
+    }
+    uint32_t result;
+    alu_o output;
+    switch (state->decoded->opcode) {
+        case AND:
+            result = dproc_and(state, operand2);
+            break;
+        case EOR:
+            result = dproc_eor(state, operand2);
+            break;
+        case SUB:
+            output = dproc_sub(state, operand2);
+            result = output.data;
+            carry = output.carry;
+            break;
+        case RSB:
+            output = dproc_rsb(state, operand2);
+            result = output.data;
+            carry = output.carry;
+            break;
+        case ADD:
+            output = dproc_add(state, operand2);
+            result = output.data;
+            carry = output.carry;
+            break;
+        case TST:
+            result = dproc_tst(state, operand2);
+            break;
+        case TEQ:
+            result = dproc_teq(state, operand2);
+            break;
+        case CMP:
+            output = dproc_cmp(state, operand2);
+            result = output.data;
+            carry = output.carry;
+            break;
+        case ORR:
+            result = dproc_orr(state, operand2);
+            break;
+        case MOV:
+            result = dproc_mov(state, operand2);
+            break;
+    }
+
+    switch (state->decoded->opcode) {
+        case TST:
+        case TEQ:
+        case CMP:
+            break;
+        default:
+            state->registers[state->decoded->rd] = result;
+            break;
+    }
+
+    if (state->decoded->isS) {
+        setFlag(state, carry, C_BIT);
+        if (result == 0) {
+            setFlag(state, 1, Z_BIT);
+        } else {
+            setFlag(state, 0, Z_BIT);
+        }
+        setFlag(state, maskBits(result, TOP_BIT, TOP_BIT), N_BIT);
+    }
+}
+
+// AND rd = operand2 AND rn
+uint32_t dproc_and(state_t *state, uint32_t operand2) {
+    uint32_t result = state->registers[state->decoded->rn] & operand2;
+    return result;
+}
+
+// XOR rd = operand2 XOR rn
+uint32_t dproc_eor(state_t *state, uint32_t operand2) {
+    uint32_t result = state->registers[state->decoded->rn] ^ operand2;
+    return result;
+}
+
+// Substraction rd = operand2 - rn, if rn > operand2, carry generated
+alu_o dproc_sub(state_t *state, uint32_t operand2) {
+    alu_o result;
+    result.data = (int32_t) state->registers[state->decoded->rn]
+            - (int32_t) operand2;
+    result.carry = state->registers[state->decoded->rn] >= operand2;
+    return result;
+}
+
+// Substraction rd = operand2 - rn, if rn > operand2, carry generated
+alu_o dproc_rsb(state_t *state, uint32_t operand2) {
+    alu_o result;
+    result.data = (int32_t) operand2
+            - (int32_t) state->registers[state->decoded->rn];
+    result.carry = operand2 >= state->registers[state->decoded->rn];
+    return result;
+}
+
+// Additiotion rd = rn + operand2, unsigned overflow sets carry flag
+alu_o dproc_add(state_t *state, uint32_t operand2) {
+    alu_o result;
+    result.data = (int32_t) state->registers[state->decoded->rn]
+                                             + (int32_t) operand2;
+    result.carry = state->registers[state->decoded->rn] > UINT32_MAX - operand2;
+    return result;
+}
+
+// Test AND on operand2 and rn, result not saved
+uint32_t dproc_tst(state_t *state, uint32_t operand2) {
+    uint32_t result = state->registers[state->decoded->rn] & operand2;
+    return result;
+}
+
+// Test XOR on operand2 and rn, result not saved
+uint32_t dproc_teq(state_t *state, uint32_t operand2) {
+    uint32_t result = state->registers[state->decoded->rn] ^ operand2;
+    return result;
+}
+
+// Compare rn and operand2, if operand2 if bigger, carry flag is set
+alu_o dproc_cmp(state_t *state, uint32_t operand2) {
+    alu_o result;
+    result.data = (int32_t) state->registers[state->decoded->rn]
+                                             - (int32_t) operand2;
+    result.carry = state->registers[state->decoded->rn] >= operand2;
+    return result;
+}
+
+// Bitwise or on operand2 and rn, result saved in rd
+uint32_t dproc_orr(state_t *state, uint32_t operand2) {
+    uint32_t result = state->registers[state->decoded->rn] | operand2;
+    return result;
+}
+
+// Moves the operand2 to register rd
+uint32_t dproc_mov(state_t *state, uint32_t operand2) {
+    uint32_t result = operand2;
+    return result;
 }
 
 void multiply(state_t *state) {
     decoded_t *decoded = state->decoded;
 
-    uint32_t result = state->registers[decoded->rs] *
-            state->registers[decoded->rm];
+    uint32_t result = state->registers[decoded->rs]
+            * state->registers[decoded->rm];
     if (decoded->isA) {
         result += state->registers[decoded->rn];
     }
