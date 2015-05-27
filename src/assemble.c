@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 
 #define I_BIT 25
 #define S_BIT 20
@@ -18,6 +20,59 @@
 #define MULTIPLY_RS 8
 #define MULTIPLY_RM 0
 
+
+typedef struct linked_map {
+    char *string;
+    uint32_t integer;
+    struct linked_map *next;
+} map_t;
+
+void put(map_t *root, char *string, uint32_t integer);
+uint32_t get(map_t *root, char *string);
+
+char **tokens(char* str);
+uint32_t setBit(uint32_t ins, int pos);
+uint32_t multiply(char **tokens);
+
+
+
+int main()
+{
+   char str[80] = "mov r0, [1, =3] ";
+   char  **strArrPtr = tokens(str);
+   for(int i = 0 ; i < 10; i++) {
+   	if (strArrPtr[i] == NULL) {
+   		break;
+   	}
+   	printf("%s\n", strArrPtr[i]);
+   }
+
+   return(0);
+}
+
+void put(map_t *root, char *string, uint32_t integer) {
+    if (root == NULL) {
+        root = malloc(sizeof(map_t));
+        root->string = string;
+        root->integer = integer;
+        root->next = NULL;
+    }
+    while (root->next != NULL) {
+        root = root->next;
+    }
+    map_t *newMap = malloc(sizeof(map_t));
+    newMap->string = string;
+    newMap->integer = integer;
+    newMap->next = NULL;
+    root->next = newMap;
+}
+
+uint32_t get(map_t *root, char *string) {
+    while (strcmp(root->string, string)) {
+        root = root->next;
+    }
+    return root->integer;
+}
 
 char **tokens(char* str) {
 
@@ -41,6 +96,7 @@ uint32_t setBit(uint32_t ins, int pos) {
 	return ins | (1 << pos);
 }
 
+
 uint32_t multiply(char **tokens) {
 	uint32_t ins  = 0;
 	if (!strcmp(tokens[0]), "mla") {
@@ -60,18 +116,4 @@ uint32_t multiply(char **tokens) {
 	int constField = 9;
 	ins = ins | constField << MULTIPLY_CONST;
 	return ins;
-}
-
-int main()
-{
-   char str[80] = "mov r0, [1, =3] ";
-   char  **strArrPtr = tokens(str);
-   for(int i = 0 ; i < 10; i++) {
-   	if (strArrPtr[i] == NULL) {
-   		break;
-   	}
-   	printf("%s\n", strArrPtr[i]);
-   }
-
-   return(0);
 }
