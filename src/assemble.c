@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 
 #define INT_BASE 10
 
@@ -15,13 +16,14 @@
 
 #define COND 28
 
-
 #define MULTIPLY_CONST 16
 #define MULTIPLY_RD 16
 #define MULTIPLY_RN 12
 #define MULTIPLY_RS 8
 #define MULTIPLY_RM 0
 
+#define NUM_OF_BLOCKS 4
+#define B_SIZE 8
 
 typedef struct linked_map {
     char *string;
@@ -35,6 +37,7 @@ uint32_t get(map_t *root, char *string);
 char **tokens(char* str);
 uint32_t setBit(uint32_t ins, int pos);
 uint32_t multiply(char **tokens);
+void binWriter(uint32_t ins, char *fileName);
 
 
 
@@ -48,6 +51,7 @@ int main()
    	}
    	printf("%s\n", strArrPtr[i]);
    }
+   binWriter(0xfffefdfc, "check.txt");
 
    return(0);
 }
@@ -119,3 +123,19 @@ uint32_t multiply(char **tokens) {
 	ins = ins | constField << MULTIPLY_CONST;
 	return ins;
 }
+
+uint8_t getBits(uint32_t ins, int upper, int lower) {
+    assert(upper >= lower && upper <= 31 && lower >= 0);
+    ins <<= 31 - upper;
+    ins >>= 31 - (upper - lower);
+    return ins;
+}
+
+void binWriter(uint32_t ins, char *fileName) {
+	FILE *fp;
+	fp = fopen(fileName, "wb");
+	fwrite(&ins, 4, 1, fp);
+	fclose(fp);
+}
+
+
