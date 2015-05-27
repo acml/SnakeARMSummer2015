@@ -107,20 +107,20 @@ uint32_t branch(char **tokens, map_t map) {
     //trying to work out what cond should be
     uint32_t cond;
     if (!strcmp(tokens[0], " beq")) {
-        cond = 0x0;
+        cond = 0x0; //0000
     } else if (!strcmp(tokens[0], " bne")) {
-        cond = 0x1;
+        cond = 0x1; //0001
     } else if (!strcmp(tokens[0], " bge")) {
-        cond = 0xa;
+        cond = 0xa; //1010
     } else if (!strcmp(tokens[0], " blt")) {
-        cond = 0xb;
+        cond = 0xb; //1011
     } else if (!strcmp(tokens[0], " bgt")) {
-        cond = 0xc;
+        cond = 0xc; //1100
     } else if (!strcmp(tokens[0], " ble")) {
-        cond = 0xd;
+        cond = 0xd; //1101
     } else {
         //b or bal
-        cond = 0xe;
+        cond = 0xe; //1110
     }
 
     //for bits 27-24
