@@ -128,7 +128,11 @@ uint32_t branch(char **tokens, map_t map) {
     
     //calculate the offset
     uint32_t offset = 0;
+    uint32_t next_addr = get(map, tokens[1]);
+    uint32_t curr_addr; //somehow get the current address
     //TODO
+    //offset = next address - (current address + 8);
+    
     
     //set cond
     ins = ins | cond << 28;
