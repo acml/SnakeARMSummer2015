@@ -30,8 +30,9 @@ typedef struct linked_map {
 void put(map_t *root, char *string, uint32_t integer);
 uint32_t get(map_t *root, char *string);
 
-char **tokens(char* str);
+char** tokens(char* str);
 uint32_t setBit(uint32_t ins, int pos);
+uint32_t branch(char **tokens, map_t map);
 uint32_t multiply(char **tokens);
 
 
@@ -74,7 +75,7 @@ uint32_t get(map_t *root, char *string) {
     return root->integer;
 }
 
-char **tokens(char* str) {
+char** tokens(char* str) {
 
 
 	const char *s = ", ";
@@ -96,6 +97,10 @@ uint32_t setBit(uint32_t ins, int pos) {
 	return ins | (1 << pos);
 }
 
+uint32_t branch(char **tokens, map_t map) {
+    
+
+}
 
 uint32_t multiply(char **tokens) {
 	uint32_t ins  = 0;
@@ -117,3 +122,5 @@ uint32_t multiply(char **tokens) {
 	ins = ins | constField << MULTIPLY_CONST;
 	return ins;
 }
+
+
