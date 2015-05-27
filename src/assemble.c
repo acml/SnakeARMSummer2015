@@ -126,6 +126,10 @@ uint32_t branch(char **tokens, map_t map) {
     //for bits 27-24
     uint32_t constant = 0xa;
     
+    //calculate the offset
+    uint32_t offset = 0;
+    //TODO
+    
     //set cond
     ins = ins | cond << 28;
     
@@ -133,6 +137,7 @@ uint32_t branch(char **tokens, map_t map) {
     ins = ins | constant << 24;
     
     //set offset
+    //ins = ins | offset;
 }
 
 uint32_t multiply(char **tokens) {
