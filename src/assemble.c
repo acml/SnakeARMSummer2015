@@ -7,6 +7,8 @@
 
 #define INT_BASE 10
 
+#define INT_BASE 10
+
 #define I_BIT 25
 #define S_BIT 20
 #define A_BIT 21
@@ -34,8 +36,9 @@ typedef struct linked_map {
 void put(map_t *root, char *string, uint32_t integer);
 uint32_t get(map_t *root, char *string);
 
-char **tokens(char* str);
+char** tokens(char* str);
 uint32_t setBit(uint32_t ins, int pos);
+uint32_t branch(char **tokens, map_t map);
 uint32_t multiply(char **tokens);
 void binWriter(uint32_t ins, char *fileName);
 
@@ -80,7 +83,7 @@ uint32_t get(map_t *root, char *string) {
     return root->integer;
 }
 
-char **tokens(char* str) {
+char** tokens(char* str) {
 
 
 	const char *s = ", ";
@@ -102,6 +105,50 @@ uint32_t setBit(uint32_t ins, int pos) {
 	return ins | (1 << pos);
 }
 
+uint32_t branch(char **tokens, map_t map) {
+    uint32_t ins = 0;
+    
+    //strcmp returns 0 if there's a match, 1 if no match
+    //0 is false, hence !0 indicates there's a match
+    //trying to work out what cond should be
+    uint32_t cond;
+    if (!strcmp(tokens[0], " beq")) {
+        cond = 0x0; //0000
+    } else if (!strcmp(tokens[0], " bne")) {
+        cond = 0x1; //0001
+    } else if (!strcmp(tokens[0], " bge")) {
+        cond = 0xa; //1010
+    } else if (!strcmp(tokens[0], " blt")) {
+        cond = 0xb; //1011
+    } else if (!strcmp(tokens[0], " bgt")) {
+        cond = 0xc; //1100
+    } else if (!strcmp(tokens[0], " ble")) {
+        cond = 0xd; //1101
+    } else {
+        //b or bal
+        cond = 0xe; //1110
+    }
+
+    //for bits 27-24
+    uint32_t constant = 0xa;
+    
+    //calculate the offset
+    uint32_t offset = 0;
+    uint32_t next_addr = get(map, tokens[1]);
+    uint32_t curr_addr; //somehow get the current address
+    //TODO
+    //offset = next address - (current address + 8);
+    
+    
+    //set cond
+    ins = ins | cond << 28;
+    
+    //set constant
+    ins = ins | constant << 24;
+    
+    //set offset
+    //ins = ins | offset;
+}
 
 uint32_t multiply(char **tokens) {
 	uint32_t ins  = 0;
