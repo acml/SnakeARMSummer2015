@@ -98,7 +98,12 @@ uint32_t setBit(uint32_t ins, int pos) {
 }
 
 uint32_t branch(char **tokens, map_t map) {
+    uint32_t ins = 0;
+    //strcmp returns 0 if there's a match, 1 if no match
+    //0 is false, hence !0 indicates there's a match
+    if (!strcmp(tokens[0], "")) {
     
+    }
 
 }
 
