@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#define INT_BASE 10
+
 #define I_BIT 25
 #define S_BIT 20
 #define A_BIT 21
@@ -38,7 +40,7 @@ uint32_t multiply(char **tokens);
 
 int main()
 {
-   char str[80] = "mov r0, [1, =3] ";
+   char str[80] = "mov r0, [1, =3]";
    char  **strArrPtr = tokens(str);
    for(int i = 0 ; i < 10; i++) {
    	if (strArrPtr[i] == NULL) {
@@ -99,15 +101,15 @@ uint32_t setBit(uint32_t ins, int pos) {
 
 uint32_t multiply(char **tokens) {
 	uint32_t ins  = 0;
-	if (!strcmp(tokens[0]), "mla") {
+	if (!strcmp(tokens[0], "mla")) {
 		//mla
 		ins = setBit(ins, A_BIT);
-		int rn =  strtol(token[4] + 1);
+		int rn =  strtol(tokens[4] + 1, NULL, INT_BASE);
 		ins = ins | rn << MULTIPLY_RN;
 	}
-	int rs = strtol(token[3] + 1);
-	int rm = strtol(token[2] + 1);
-	int rd = strtol(token[1] + 1);
+	int rs = strtol(tokens[3] + 1, NULL, INT_BASE);
+	int rm = strtol(tokens[2] + 1, NULL, INT_BASE);
+	int rd = strtol(tokens[1] + 1, NULL, INT_BASE);
 	ins = ins | rs << MULTIPLY_RS;
 	ins = ins | rm << MULTIPLY_RM;
 	ins = ins | rd << MULTIPLY_RD;
