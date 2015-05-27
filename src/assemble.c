@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#define INT_BASE 10
+
 #define I_BIT 25
 #define S_BIT 20
 #define A_BIT 21
@@ -99,25 +101,51 @@ uint32_t setBit(uint32_t ins, int pos) {
 
 uint32_t branch(char **tokens, map_t map) {
     uint32_t ins = 0;
+    
     //strcmp returns 0 if there's a match, 1 if no match
     //0 is false, hence !0 indicates there's a match
-    if (!strcmp(tokens[0], "")) {
-    
+    //trying to work out what cond should be
+    uint32_t cond;
+    if (!strcmp(tokens[0], " beq")) {
+        cond = 0x0;
+    } else if (!strcmp(tokens[0], " bne")) {
+        cond = 0x1;
+    } else if (!strcmp(tokens[0], " bge")) {
+        cond = 0xa;
+    } else if (!strcmp(tokens[0], " blt")) {
+        cond = 0xb;
+    } else if (!strcmp(tokens[0], " bgt")) {
+        cond = 0xc;
+    } else if (!strcmp(tokens[0], " ble")) {
+        cond = 0xd;
+    } else {
+        //b or bal
+        cond = 0xe;
     }
 
+    //for bits 27-24
+    uint32_t constant = 0xa;
+    
+    //set cond
+    ins = ins | cond << 28;
+    
+    //set constant
+    ins = ins | constant << 24;
+    
+    //set offset
 }
 
 uint32_t multiply(char **tokens) {
 	uint32_t ins  = 0;
-	if (!strcmp(tokens[0]), "mla") {
+	if (!strcmp(tokens[0], "mla")) {
 		//mla
 		ins = setBit(ins, A_BIT);
-		int rn =  strtol(token[4] + 1);
+		int rn =  strtol(tokens[4] + 1, NULL, INT_BASE);
 		ins = ins | rn << MULTIPLY_RN;
 	}
-	int rs = strtol(token[3] + 1);
-	int rm = strtol(token[2] + 1);
-	int rd = strtol(token[1] + 1);
+	int rs = strtol(tokens[3] + 1, NULL, INT_BASE);
+	int rm = strtol(tokens[2] + 1, NULL, INT_BASE);
+	int rd = strtol(tokens[1] + 1, NULL, INT_BASE);
 	ins = ins | rs << MULTIPLY_RS;
 	ins = ins | rm << MULTIPLY_RM;
 	ins = ins | rd << MULTIPLY_RD;
