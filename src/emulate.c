@@ -100,11 +100,6 @@ typedef struct shift_output {
     int carry;
 } shift_o;
 
-typedef struct alu_output {
-    uint32_t data;
-    int carry;
-} alu_o;
-
 state_t *newState(void);
 void delState(state_t *state);
 int readBinary(state_t *state, int argc, char **argv);
@@ -121,7 +116,6 @@ uint32_t getFLag(state_t *state, int flag);
 void setFlag(state_t *state, int val, int flag);
 
 ins_t insTpye(uint32_t ins);
-
 int checkCond(state_t *state);
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
 int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
@@ -132,21 +126,9 @@ void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
 
-uint32_t dataProcessing_and(state_t *state, uint32_t operand2);
-uint32_t dataProcessing_eor(state_t *state, uint32_t operand2);
-alu_o dataProcessing_sub(state_t *state, uint32_t operand2);
-alu_o dataProcessing_rsb(state_t *state, uint32_t operand2);
-alu_o dataProcessing_add(state_t *state, uint32_t operand2);
-uint32_t dataProcessing_tst(state_t *state, uint32_t operand2);
-uint32_t dataProcessing_teq(state_t *state, uint32_t operand2);
-alu_o dataProcessing_cmp(state_t *state, uint32_t operand2);
-uint32_t dataProcessing_orr(state_t *state, uint32_t operand2);
-uint32_t dataProcessing_mov(state_t *state, uint32_t operand2);
-
 uint32_t offestAddress(uint32_t address, int isU, uint32_t offset);
 void singleDataTransfer_ldr(state_t *state, uint32_t address);
 void singleDataTransfer_str(state_t *state, uint32_t address);
-
 uint32_t bytesToWord(uint8_t *bytes);
 
 int main(int argc, char **argv) {
@@ -368,7 +350,6 @@ void decode(state_t *state) {
     uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
 
-
     state->isDecoded = 1;
 }
 
@@ -517,45 +498,36 @@ void dataProcessing(state_t *state) {
     }
 
     uint32_t result;
-    alu_o output;
     switch (decoded->opcode) {
         case AND:
-            result = dataProcessing_and(state, operand2);
+        case TST:
+            result = state->registers[decoded->rn] & operand2;
             break;
         case EOR:
-            result = dataProcessing_eor(state, operand2);
+        case TEQ:
+            result = state->registers[decoded->rn] ^ operand2;
             break;
         case SUB:
-            output = dataProcessing_sub(state, operand2);
-            result = output.data;
-            carry = output.carry;
+        case CMP:
+            result = (int32_t) state->registers[decoded->rn]
+                    - (int32_t) operand2;
+            carry = state->registers[decoded->rn] >= operand2;
             break;
         case RSB:
-            output = dataProcessing_rsb(state, operand2);
-            result = output.data;
-            carry = output.carry;
+            result = (int32_t) operand2
+                    - (int32_t) state->registers[decoded->rn];
+            carry = operand2 >= state->registers[decoded->rn];
             break;
         case ADD:
-            output = dataProcessing_add(state, operand2);
-            result = output.data;
-            carry = output.carry;
-            break;
-        case TST:
-            result = dataProcessing_tst(state, operand2);
-            break;
-        case TEQ:
-            result = dataProcessing_teq(state, operand2);
-            break;
-        case CMP:
-            output = dataProcessing_cmp(state, operand2);
-            result = output.data;
-            carry = output.carry;
+            result = (int32_t) state->registers[decoded->rn]
+                    + (int32_t) operand2;
+            carry = state->registers[decoded->rn] > UINT32_MAX - operand2;
             break;
         case ORR:
-            result = dataProcessing_orr(state, operand2);
+            result = state->registers[decoded->rn] | operand2;
             break;
         case MOV:
-            result = dataProcessing_mov(state, operand2);
+            result = operand2;
             break;
     }
 
@@ -578,78 +550,6 @@ void dataProcessing(state_t *state) {
         }
         setFlag(state, maskBits(result, TOP_BIT, TOP_BIT), N_BIT);
     }
-}
-
-// AND rd = operand2 AND rn
-uint32_t dataProcessing_and(state_t *state, uint32_t operand2) {
-    uint32_t result = state->registers[state->decoded->rn] & operand2;
-    return result;
-}
-
-// XOR rd = operand2 XOR rn
-uint32_t dataProcessing_eor(state_t *state, uint32_t operand2) {
-    uint32_t result = state->registers[state->decoded->rn] ^ operand2;
-    return result;
-}
-
-// Substraction rd = operand2 - rn, if rn > operand2, carry generated
-alu_o dataProcessing_sub(state_t *state, uint32_t operand2) {
-    alu_o result;
-    result.data = (int32_t) state->registers[state->decoded->rn]
-            - (int32_t) operand2;
-    result.carry = state->registers[state->decoded->rn] >= operand2;
-    return result;
-}
-
-// Substraction rd = operand2 - rn, if rn > operand2, carry generated
-alu_o dataProcessing_rsb(state_t *state, uint32_t operand2) {
-    alu_o result;
-    result.data = (int32_t) operand2
-            - (int32_t) state->registers[state->decoded->rn];
-    result.carry = operand2 >= state->registers[state->decoded->rn];
-    return result;
-}
-
-// Additiotion rd = rn + operand2, unsigned overflow sets carry flag
-alu_o dataProcessing_add(state_t *state, uint32_t operand2) {
-    alu_o result;
-    result.data = (int32_t) state->registers[state->decoded->rn]
-            + (int32_t) operand2;
-    result.carry = state->registers[state->decoded->rn] > UINT32_MAX - operand2;
-    return result;
-}
-
-// Test AND on operand2 and rn, result not saved
-uint32_t dataProcessing_tst(state_t *state, uint32_t operand2) {
-    uint32_t result = state->registers[state->decoded->rn] & operand2;
-    return result;
-}
-
-// Test XOR on operand2 and rn, result not saved
-uint32_t dataProcessing_teq(state_t *state, uint32_t operand2) {
-    uint32_t result = state->registers[state->decoded->rn] ^ operand2;
-    return result;
-}
-
-// Compare rn and operand2, if operand2 if bigger, carry flag is set
-alu_o dataProcessing_cmp(state_t *state, uint32_t operand2) {
-    alu_o result;
-    result.data = (int32_t) state->registers[state->decoded->rn]
-            - (int32_t) operand2;
-    result.carry = state->registers[state->decoded->rn] >= operand2;
-    return result;
-}
-
-// Bitwise or on operand2 and rn, result saved in rd
-uint32_t dataProcessing_orr(state_t *state, uint32_t operand2) {
-    uint32_t result = state->registers[state->decoded->rn] | operand2;
-    return result;
-}
-
-// Moves the operand2 to register rd
-uint32_t dataProcessing_mov(state_t *state, uint32_t operand2) {
-    uint32_t result = operand2;
-    return result;
 }
 
 void multiply(state_t *state) {
