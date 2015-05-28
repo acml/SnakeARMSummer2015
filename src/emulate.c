@@ -66,6 +66,13 @@ typedef enum {
 
 typedef struct arm_decoded {
     ins_t ins;
+    int isRegShiftValue;
+    int isI;
+    int isS;
+    int isA;
+    int isP;
+    int isU;
+    int isL;
     uint32_t rd;
     uint32_t rn;
     uint32_t rs;
@@ -74,15 +81,8 @@ typedef struct arm_decoded {
     opcode_t opcode;
     shift_t shift;
     uint32_t shiftValue;
-    int isRegShiftValue;
     uint32_t immValue;
     uint32_t branchOffset;
-    int isI;
-    int isS;
-    int isA;
-    int isP;
-    int isU;
-    int isL;
 } decoded_t;
 
 typedef struct arm_state {
@@ -314,25 +314,50 @@ void decode(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
+
+    memset(decoded, 0, sizeof(decoded_t));
     uint32_t instruction = state->fetched;
 
     decoded->ins = insTpye(instruction);
 
-    decoded->rd = maskBits(instruction, 15, 12);
-    decoded->rn = maskBits(instruction, 19, 16);
-    if (decoded->ins == MULTIPLY) {
-        uint32_t tmp = decoded->rd;
-        decoded->rd = decoded->rn;
-        decoded->rn = tmp;
+    decoded->isRegShiftValue = maskBits(instruction, 4, 4);
+    decoded->isI = maskBits(instruction, I_BIT, I_BIT);
+    decoded->isS = maskBits(instruction, S_BIT, S_BIT);
+    decoded->isA = maskBits(instruction, A_BIT, A_BIT);
+    decoded->isP = maskBits(instruction, P_BIT, P_BIT);
+    decoded->isU = maskBits(instruction, U_BIT, U_BIT);
+    decoded->isL = maskBits(instruction, L_BIT, L_BIT);
+
+    if (decoded->ins != BRANCH) {
+        decoded->rd = maskBits(instruction, 15, 12);
+        decoded->rn = maskBits(instruction, 19, 16);
+        if (decoded->ins == MULTIPLY) {
+            uint32_t tmp = decoded->rd;
+            decoded->rd = decoded->rn;
+            decoded->rn = tmp;
+            decoded->rs = maskBits(instruction, 11, 8);
+            decoded->rm = maskBits(instruction, 3, 0);
+        } else if (decoded->ins == DATA_PROCESSING) {
+            if (!decoded->isI) {
+                decoded->rm = maskBits(instruction, 3, 0);
+                if (decoded->isRegShiftValue) {
+                    decoded->rs = maskBits(instruction, 11, 8);
+                }
+            }
+        } else if (decoded->ins == SINGLE_DATA_TRANSFER) {
+            if (decoded->isI) {
+                decoded->rm = maskBits(instruction, 3, 0);
+                if (decoded->isRegShiftValue) {
+                    decoded->rs = maskBits(instruction, 11, 8);
+                }
+            }
+        }
     }
-    decoded->rs = maskBits(instruction, 11, 8);
-    decoded->rm = maskBits(instruction, 3, 0);
 
     decoded->cond = maskBits(instruction, 31, 28);
     decoded->opcode = maskBits(instruction, 24, 21);
     decoded->shift = maskBits(instruction, 6, 5);
     decoded->shiftValue = maskBits(instruction, 11, 7);
-    decoded->isRegShiftValue = maskBits(instruction, 4, 4);
     if (decoded->ins == DATA_PROCESSING) {
         uint32_t data = maskBits(instruction, 7, 0);
         uint32_t shiftValue = maskBits(instruction, 11, 8) * 2;
@@ -343,12 +368,6 @@ void decode(state_t *state) {
     uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
 
-    decoded->isI = maskBits(instruction, I_BIT, I_BIT);
-    decoded->isS = maskBits(instruction, S_BIT, S_BIT);
-    decoded->isA = maskBits(instruction, A_BIT, A_BIT);
-    decoded->isP = maskBits(instruction, P_BIT, P_BIT);
-    decoded->isU = maskBits(instruction, U_BIT, U_BIT);
-    decoded->isL = maskBits(instruction, L_BIT, L_BIT);
 
     state->isDecoded = 1;
 }
@@ -467,11 +486,10 @@ shift_o shiftReg(state_t *state) {
     if (decoded->isRegShiftValue) {
         shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
     }
+    uint32_t data = state->registers[decoded->rm];
     shift_o output;
-    output.data = shiftData(state->registers[decoded->rm], decoded->shift,
-            shiftValue);
-    output.carry = shiftCarry(state->registers[decoded->rm], decoded->shift,
-            shiftValue);
+    output.data = shiftData(data, decoded->shift, shiftValue);
+    output.carry = shiftCarry(data, decoded->shift, shiftValue);
     return output;
 }
 
@@ -485,6 +503,9 @@ shift_o shiftReg(state_t *state) {
 void dataProcessing(state_t *state) {
     decoded_t *decoded = state->decoded;
 
+    assert(decoded->rd != PC_REG && decoded->rn != PC_REG &&
+           decoded->rs != PC_REG && decoded->rm != PC_REG);
+
     uint32_t operand2;
     int carry = 0;
     if (decoded->isI) {
@@ -494,6 +515,7 @@ void dataProcessing(state_t *state) {
         operand2 = output.data;
         carry = output.carry;
     }
+
     uint32_t result;
     alu_o output;
     switch (decoded->opcode) {
@@ -633,6 +655,10 @@ uint32_t dataProcessing_mov(state_t *state, uint32_t operand2) {
 void multiply(state_t *state) {
     decoded_t *decoded = state->decoded;
 
+    assert(decoded->rd != PC_REG && decoded->rn != PC_REG &&
+           decoded->rs != PC_REG && decoded->rm != PC_REG);
+    assert(decoded->rd != decoded->rm);
+
     uint32_t result = state->registers[decoded->rs]
             * state->registers[decoded->rm];
     if (decoded->isA) {
@@ -643,6 +669,8 @@ void multiply(state_t *state) {
     if (decoded->isS) {
         if (result == 0) {
             setFlag(state, 1, Z_BIT);
+        } else {
+            setFlag(state, 0, Z_BIT);
         }
         setFlag(state, maskBits(result, TOP_BIT, TOP_BIT), N_BIT);
     }
