@@ -232,7 +232,13 @@ int readBinary(state_t *state, int argc, char **argv) {
         return 0;
     }
 
-    fread(state->memory, sizeof(uint8_t), MEMORY_SIZE, fp);
+    uint8_t *buffer = malloc(sizeof(uint8_t));
+    int i = 0;
+    while (fread(buffer, sizeof(uint8_t), 1, fp) == 1) {
+        state->memory[i] = *buffer;
+        i++;
+    }
+    free(buffer);
 
     fclose(fp);
     return 1;
@@ -247,7 +253,7 @@ int outputState(state_t *state) {
     }
 
     printf("Non-zero memory:\n");
-    uint32_t *word = ((uint32_t *) state->memory);
+    uint32_t *word = (uint32_t *) state->memory;
     for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
         if (word[i] != 0) {
             printf("0x%08x: 0x%08x\n", i * BYTES_IN_WORD, be32toh(word[i]));
