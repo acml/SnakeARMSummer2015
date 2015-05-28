@@ -109,8 +109,8 @@ typedef struct alu_output {
 state_t *newState(void);
 void delState(state_t *state);
 int readBinary(state_t *state, int argc, char **argv);
-int writeState(state_t *state, char **argv);
-void printRegister(state_t *state, FILE *fp, int reg);
+int outputState(state_t *state);
+void printRegister(state_t *state, int reg);
 
 void execute(state_t *state);
 void decode(state_t *state);
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!writeState(state, argv)) {
+    if (!outputState(state)) {
         return EXIT_FAILURE;
     }
 
@@ -233,85 +233,40 @@ int readBinary(state_t *state, int argc, char **argv) {
         return 0;
     }
 
-//    uint32_t *word = malloc(sizeof(uint32_t));
-//    if (word == NULL) {
-//        return 0;
-//    }
-//    int i = 0;
-//    while (fread(word, sizeof(uint32_t), 1, fp)) {
-//        state->memory[i] = be32toh(*word);
-//        i++;
-//    }
-//    free(word);
-
     fread(state->memory, sizeof(uint8_t), MEMORY_SIZE, fp);
 
     fclose(fp);
     return 1;
 }
 
-//int writeState(state_t *state, char **argv) {
-//    FILE *fp = fopen(strcat(argv[1], ".out"), "w");
-//    if (fp == NULL) {
-//        printf("Could not open output file.\n");
-//        return 0;
-//    }
-//
-//    fprintf(fp, "Registers:\n");
-//    for (int i = 0; i < REGISTERS_COUNT; i++) {
-//        if (i != SP_REG && i != LR_REG) {
-//            printRegister(state, fp, i);
-//        }
-//    }
-//
-//    fprintf(fp, "Non-zero memory:\n");
-//    uint32_t *word = (uint32_t *)state->memory;
-//    for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
-//        if (word[i] != 0) {
-//            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, be32toh(word[i]));
-//        }
-//    }
-//
-//    fclose(fp);
-//    return 1;
-//}
-
-int writeState(state_t *state, char **argv) {
-    FILE *fp = fopen(strcat(argv[1], ".out"), "w");
-    if (fp == NULL) {
-        printf("Could not open output file.\n");
-        return 0;
-    }
-    fp = stdout;
-    fprintf(fp, "Registers:\n");
+int outputState(state_t *state) {
+    printf("Registers:\n");
     for (int i = 0; i < REGISTERS_COUNT; i++) {
         if (i != SP_REG && i != LR_REG) {
-            printRegister(state, fp, i);
+            printRegister(state, i);
         }
     }
 
-    fprintf(fp, "Non-zero memory:\n");
+    printf("Non-zero memory:\n");
     uint32_t *word = (uint32_t *) state->memory;
     for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
         if (word[i] != 0) {
-            fprintf(fp, "0x%08x: 0x%08x\n", i * 4, be32toh(word[i]));
+            printf("0x%08x: 0x%08x\n", i * BYTES_IN_WORD, be32toh(word[i]));
         }
     }
 
-    fclose(fp);
     return 1;
 }
 
-void printRegister(state_t *state, FILE *fp, int reg) {
+void printRegister(state_t *state, int reg) {
     if (reg == PC_REG) {
-        fprintf(fp, "PC  :");
+        printf("PC  ");
     } else if (reg == CPSR_REG) {
-        fprintf(fp, "CPSR:");
+        printf("CPSR");
     } else {
-        fprintf(fp, "$%-3d:", reg);
+        printf("$%-3d", reg);
     }
-    fprintf(fp, " %10d (0x%08x)\n", state->registers[reg],
-            state->registers[reg]);
+    printf(": %10d (0x%08x)\n", state->registers[reg], state->registers[reg]);
 }
 
 void execute(state_t *state) {
@@ -759,4 +714,3 @@ void branch(state_t *state) {
 uint32_t bytesToWord(uint8_t *bytes) {
     return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
 }
-
