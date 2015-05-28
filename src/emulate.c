@@ -28,19 +28,41 @@
 #define PC_AHEAD_BYTES 8
 
 typedef enum {
-    DATA_PROCESSING, MULTIPLY, SINGLE_DATA_TRANSFER, BRANCH, TERMINATION
+    DATA_PROCESSING,
+    MULTIPLY,
+    SINGLE_DATA_TRANSFER,
+    BRANCH,
+    TERMINATION
 } ins_t;
 
 typedef enum {
-    EQ, NE, GE, LT, GT, LE, AL
+    EQ = 0,
+    NE = 1,
+    GE = 10,
+    LT = 11,
+    GT = 12,
+    LE = 13,
+    AL = 14
 } cond_t;
 
 typedef enum {
-    AND, EOR, SUB, RSB, ADD, TST, TEQ, CMP, ORR, MOV
+    AND = 0,
+    EOR = 1,
+    SUB = 2,
+    RSB = 3,
+    ADD = 4,
+    TST = 8,
+    TEQ = 9,
+    CMP = 10,
+    ORR = 12,
+    MOV = 13
 } opcode_t;
 
 typedef enum {
-    LSL, LSR, ASR, ROR
+    LSL = 0,
+    LSR = 1,
+    ASR = 2,
+    ROR = 3
 } shift_t;
 
 typedef struct arm_decoded {
@@ -100,9 +122,6 @@ uint32_t getFLag(state_t *state, int flag);
 void setFlag(state_t *state, int val, int flag);
 
 ins_t insTpye(uint32_t ins);
-cond_t condTpye(uint32_t ins);
-opcode_t opcodeType(uint32_t ins);
-shift_t shiftType(uint32_t ins);
 
 int checkCond(state_t *state);
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
@@ -350,9 +369,9 @@ void decode(state_t *state) {
     decoded->rs = maskBits(ins, 11, 8);
     decoded->rm = maskBits(ins, 3, 0);
 
-    decoded->cond = condTpye(ins);
-    decoded->opcode = opcodeType(ins);
-    decoded->shift = shiftType(ins);
+    decoded->cond = maskBits(ins, 31, 28);
+    decoded->opcode = maskBits(ins, 24, 21);
+    decoded->shift = maskBits(ins, 6, 5);
     decoded->shiftValue = maskBits(ins, 11, 7);
     decoded->isRegShiftValue = maskBits(ins, 4, 4);
     if (decoded->ins == DATA_PROCESSING) {
@@ -420,69 +439,6 @@ ins_t insTpye(uint32_t ins) {
             return DATA_PROCESSING;
         }
     }
-}
-
-cond_t condTpye(uint32_t ins) {
-    uint32_t condBits = maskBits(ins, 31, 28);
-    switch (condBits) {
-        case 0:
-            return EQ;
-        case 1:
-            return NE;
-        case 10:
-            return GE;
-        case 11:
-            return LT;
-        case 12:
-            return GT;
-        case 13:
-            return LE;
-        case 14:
-            return AL;
-    }
-    return -1;
-}
-
-opcode_t opcodeType(uint32_t ins) {
-    uint32_t opcodeBits = maskBits(ins, 24, 21);
-    switch (opcodeBits) {
-        case 0:
-            return AND;
-        case 1:
-            return EOR;
-        case 2:
-            return SUB;
-        case 3:
-            return RSB;
-        case 4:
-            return ADD;
-        case 8:
-            return TST;
-        case 9:
-            return TEQ;
-        case 10:
-            return CMP;
-        case 12:
-            return ORR;
-        case 13:
-            return MOV;
-    }
-    return -1;
-}
-
-shift_t shiftType(uint32_t ins) {
-    uint32_t shiftBits = maskBits(ins, 6, 5);
-    switch (shiftBits) {
-        case 0:
-            return LSL;
-        case 1:
-            return LSR;
-        case 2:
-            return ASR;
-        case 3:
-            return ROR;
-    }
-    return -1;
 }
 
 int checkCond(state_t *state) {
@@ -756,8 +712,9 @@ void singleDataTransfer(state_t *state) {
     }
 
     if (address > MEMORY_SIZE) {
-    	printf("Error: Out of bounds memory access at address 0x%08x\n", address);
-    	return;
+        printf("Error: Out of bounds memory access at address 0x%08x\n",
+                address);
+        return;
     }
     if (decoded->isL) {
         ldr(state, address);
@@ -772,7 +729,7 @@ void singleDataTransfer(state_t *state) {
 
 uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
 
-	if (isU) {
+    if (isU) {
         return address + offset;
     } else {
         return address - offset;
