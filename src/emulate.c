@@ -4,7 +4,6 @@
 #include <string.h>
 #include <assert.h>
 #include <endian.h>
-#include <limits.h>
 
 #define BYTES_IN_WORD 4
 #define BITS_IN_WORD 32
@@ -126,7 +125,7 @@ ins_t insTpye(uint32_t ins);
 int checkCond(state_t *state);
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
 int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
-shift_o shiftedReg(state_t *state);
+shift_o shiftReg(state_t *state);
 
 void dataProcessing(state_t *state);
 void multiply(state_t *state);
@@ -145,8 +144,8 @@ uint32_t dataProcessing_orr(state_t *state, uint32_t operand2);
 uint32_t dataProcessing_mov(state_t *state, uint32_t operand2);
 
 uint32_t offestAddress(uint32_t address, int isU, uint32_t offset);
-void ldr(state_t *state, uint32_t address);
-void str(state_t *state, uint32_t address);
+void singleDataTransfer_ldr(state_t *state, uint32_t address);
+void singleDataTransfer_str(state_t *state, uint32_t address);
 
 uint32_t bytesToWord(uint8_t *bytes);
 
@@ -248,7 +247,7 @@ int outputState(state_t *state) {
     }
 
     printf("Non-zero memory:\n");
-    uint32_t *word = (uint32_t *) state->memory;
+    uint32_t *word = ((uint32_t *) state->memory);
     for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
         if (word[i] != 0) {
             printf("0x%08x: 0x%08x\n", i * BYTES_IN_WORD, be32toh(word[i]));
@@ -296,7 +295,6 @@ void execute(state_t *state) {
             break;
         case BRANCH:
             branch(state);
-
             break;
         default:
             break;
@@ -310,48 +308,48 @@ void decode(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
-    uint32_t ins = state->fetched;
+    uint32_t instruction = state->fetched;
 
-    decoded->ins = insTpye(ins);
+    decoded->ins = insTpye(instruction);
 
-    decoded->rd = maskBits(ins, 15, 12);
-    decoded->rn = maskBits(ins, 19, 16);
+    decoded->rd = maskBits(instruction, 15, 12);
+    decoded->rn = maskBits(instruction, 19, 16);
     if (decoded->ins == MULTIPLY) {
         uint32_t tmp = decoded->rd;
         decoded->rd = decoded->rn;
         decoded->rn = tmp;
     }
-    decoded->rs = maskBits(ins, 11, 8);
-    decoded->rm = maskBits(ins, 3, 0);
+    decoded->rs = maskBits(instruction, 11, 8);
+    decoded->rm = maskBits(instruction, 3, 0);
 
-    decoded->cond = maskBits(ins, 31, 28);
-    decoded->opcode = maskBits(ins, 24, 21);
-    decoded->shift = maskBits(ins, 6, 5);
-    decoded->shiftValue = maskBits(ins, 11, 7);
-    decoded->isRegShiftValue = maskBits(ins, 4, 4);
+    decoded->cond = maskBits(instruction, 31, 28);
+    decoded->opcode = maskBits(instruction, 24, 21);
+    decoded->shift = maskBits(instruction, 6, 5);
+    decoded->shiftValue = maskBits(instruction, 11, 7);
+    decoded->isRegShiftValue = maskBits(instruction, 4, 4);
     if (decoded->ins == DATA_PROCESSING) {
-        uint32_t data = maskBits(ins, 7, 0);
-        uint32_t shiftValue = maskBits(ins, 11, 8) * 2;
+        uint32_t data = maskBits(instruction, 7, 0);
+        uint32_t shiftValue = maskBits(instruction, 11, 8) * 2;
         decoded->immValue = shiftData(data, ROR, shiftValue);
     } else {
-        decoded->immValue = maskBits(ins, 11, 0);
+        decoded->immValue = maskBits(instruction, 11, 0);
     }
-    uint32_t data = maskBits(ins, 23, 0);
+    uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
 
-    decoded->isI = maskBits(ins, I_BIT, I_BIT);
-    decoded->isS = maskBits(ins, S_BIT, S_BIT);
-    decoded->isA = maskBits(ins, A_BIT, A_BIT);
-    decoded->isP = maskBits(ins, P_BIT, P_BIT);
-    decoded->isU = maskBits(ins, U_BIT, U_BIT);
-    decoded->isL = maskBits(ins, L_BIT, L_BIT);
+    decoded->isI = maskBits(instruction, I_BIT, I_BIT);
+    decoded->isS = maskBits(instruction, S_BIT, S_BIT);
+    decoded->isA = maskBits(instruction, A_BIT, A_BIT);
+    decoded->isP = maskBits(instruction, P_BIT, P_BIT);
+    decoded->isU = maskBits(instruction, U_BIT, U_BIT);
+    decoded->isL = maskBits(instruction, L_BIT, L_BIT);
 
     state->isDecoded = 1;
 }
 
 void fetch(state_t *state) {
-    uint32_t *word = (uint32_t *) state->memory;
-    state->fetched = word[state->registers[PC_REG] / BYTES_IN_WORD];
+    state->fetched = ((uint32_t *) state->memory)[state->registers[PC_REG]
+            / BYTES_IN_WORD];
     state->isFetched = 1;
 }
 
@@ -371,6 +369,7 @@ uint32_t getFLag(state_t *state, int flag) {
 }
 
 void setFlag(state_t *state, int val, int flag) {
+    assert(val == 0 || val == 1);
     state->registers[CPSR_REG] ^= (-val ^ state->registers[CPSR_REG])
             & (1 << flag);
 }
@@ -385,10 +384,7 @@ ins_t insTpye(uint32_t ins) {
     } else if (insBits == 2) {
         return BRANCH;
     } else {
-        uint32_t bitI = maskBits(ins, I_BIT, I_BIT);
-        uint32_t bit4 = maskBits(ins, 4, 4);
-        uint32_t bit7 = maskBits(ins, 7, 7);
-        if (bitI == 0 && bit4 == 1 && bit7 == 1) {
+        if (maskBits(ins, I_BIT, I_BIT) == 0 && maskBits(ins, 7, 4) == 9) {
             return MULTIPLY;
         } else {
             return DATA_PROCESSING;
@@ -458,7 +454,7 @@ int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
     return maskBits(data, carryBit, carryBit);
 }
 
-shift_o shiftedReg(state_t *state) {
+shift_o shiftReg(state_t *state) {
     decoded_t *decoded = state->decoded;
 
     uint32_t shiftValue = decoded->shiftValue;
@@ -481,18 +477,20 @@ shift_o shiftedReg(state_t *state) {
 // significant byte of rs
 
 void dataProcessing(state_t *state) {
+    decoded_t *decoded = state->decoded;
+
     uint32_t operand2;
     int carry = 0;
-    if (state->decoded->isI) {
-        operand2 = state->decoded->immValue;
+    if (decoded->isI) {
+        operand2 = decoded->immValue;
     } else {
-        shift_o output = shiftedReg(state);
+        shift_o output = shiftReg(state);
         operand2 = output.data;
         carry = output.carry;
     }
     uint32_t result;
     alu_o output;
-    switch (state->decoded->opcode) {
+    switch (decoded->opcode) {
         case AND:
             result = dataProcessing_and(state, operand2);
             break;
@@ -533,17 +531,17 @@ void dataProcessing(state_t *state) {
             break;
     }
 
-    switch (state->decoded->opcode) {
+    switch (decoded->opcode) {
         case TST:
         case TEQ:
         case CMP:
             break;
         default:
-            state->registers[state->decoded->rd] = result;
+            state->registers[decoded->rd] = result;
             break;
     }
 
-    if (state->decoded->isS) {
+    if (decoded->isS) {
         setFlag(state, carry, C_BIT);
         if (result == 0) {
             setFlag(state, 1, Z_BIT);
@@ -634,7 +632,7 @@ void multiply(state_t *state) {
     if (decoded->isA) {
         result += state->registers[decoded->rn];
     }
-    state->registers[state->decoded->rd] = result;
+    state->registers[decoded->rd] = result;
 
     if (decoded->isS) {
         if (result == 0) {
@@ -653,11 +651,11 @@ void singleDataTransfer(state_t *state) {
 
     uint32_t offset;
     if (decoded->isI) {
-        offset = shiftedReg(state).data;
+        offset = shiftReg(state).data;
     } else {
         offset = decoded->immValue;
     }
-    uint32_t address = state->registers[state->decoded->rn];
+    uint32_t address = state->registers[decoded->rn];
     if (decoded->isP) {
         address = offestAddress(address, decoded->isU, offset);
     }
@@ -672,9 +670,9 @@ void singleDataTransfer(state_t *state) {
         return;
     }
     if (decoded->isL) {
-        ldr(state, address);
+        singleDataTransfer_ldr(state, address);
     } else {
-        str(state, address);
+        singleDataTransfer_str(state, address);
     }
 
     if (!decoded->isP) {
@@ -683,7 +681,6 @@ void singleDataTransfer(state_t *state) {
 }
 
 uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
-
     if (isU) {
         return address + offset;
     } else {
@@ -692,23 +689,20 @@ uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
 }
 
 // Loads data from memory to register
-void ldr(state_t *state, uint32_t address) {
+void singleDataTransfer_ldr(state_t *state, uint32_t address) {
     state->registers[state->decoded->rd] = bytesToWord(&state->memory[address]);
 }
 
 // Stores data from register to memory
-void str(state_t *state, uint32_t address) {
+void singleDataTransfer_str(state_t *state, uint32_t address) {
     uint32_t *word = (uint32_t *) &state->memory[address];
     *word = state->registers[state->decoded->rd];
 }
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
-
-    //TODO this might be broken
     state->isDecoded = 0;
     state->isFetched = 0;
-
 }
 
 uint32_t bytesToWord(uint8_t *bytes) {
