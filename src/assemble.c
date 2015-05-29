@@ -109,7 +109,7 @@ uint32_t setBits(uint32_t ins, int value, int pos) {
 }
 
 uint32_t branch(char **tokens, map_t map) {
-    uint32_t ins = 0;
+ /*   uint32_t ins = 0;
 
     //strcmp returns 0 if there's a match, 1 if no match
     //0 is false, hence !0 indicates there's a match
@@ -150,6 +150,8 @@ uint32_t branch(char **tokens, map_t map) {
 
     //set offset
     //ins = ins | offset;
+*/
+    return 0;
 }
 
 uint32_t multiply(char **tokens) {
@@ -180,7 +182,8 @@ uint32_t findLabels(map_t *map) {
     return 100;    //dummy value
 }
 
-uint32_t sDataTrans(char **tokens) {
+//uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
+uint32_t sDataTrans(char **tokens, uint32_t *constAdress) {
     uint32_t ins = 0;
 
     //Check if closing bracket is in tokens[1]
@@ -197,7 +200,7 @@ uint32_t sDataTrans(char **tokens) {
     }
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
-    //TODO : find better way to do this
+
     if (!strcmp(tokens[0], "ldr")) {
         ins = setBits(ins, 1, L_BIT);
     }
@@ -210,9 +213,11 @@ uint32_t sDataTrans(char **tokens) {
             ins = setBits(ins, 0xd, OPCODE_POS);
             ins = setBits(ins, immValue, OFFSET_POS);
             return ins;
+        } else {
+            //TODO save constants after program terminates
         }
 
-        //TODO save constants after program terminates
+        
     } else {
 
         int setU = 0;
@@ -249,9 +254,20 @@ uint32_t sDataTrans(char **tokens) {
             // shift cases
             if (tokens[4] != NULL) {
                 char *from = tokens[4];
-                //char *shiftType = strndup(from, 3); // takes first 3 chars from token line
+                char *shiftType = strndup(from, 3); // takes first 3 chars from token line
                 char *shiftValue = strdup(from + 4); // takes chars from position 4
+                int shiftBits = 0;
+                if (!strcmp(shiftType, "lsl")) {
+                    shiftBits = 0x0; //00
+                } else if (!strcmp(shiftType, "lsr")) {
+                    shiftBits = 0x1; //01
+                } else if (!strcmp(shiftType, " asr")) {
+                    shiftBits = 0x2; //10
+                } else if (!strcmp(shiftType, " ror")) {
+                    shiftBits = 0x3; //11
+                }
 
+                setBits(ins, shiftBits, 5);
                 if (shiftValue[0] == '#') {
                     int shiftInt = strtol(shiftValue + 1, NULL, 0);
                     assert(shiftInt < 16);
@@ -265,13 +281,15 @@ uint32_t sDataTrans(char **tokens) {
             iBitValue = 1;
         }
 
+
+
         ins = setBits(ins, 0xe, COND_POS);
         ins = setBits(ins, iBitValue, I_BIT);
         ins = setBits(ins, 1, P_BIT);
         ins = setBits(ins, rn, RN_POS);
         ins = setBits(ins, setU, U_BIT);
         ins = setBits(ins, rm, RM_POS);
-        //TODO : rewrite shift type
+
         ins = setBits(ins, 0, 5);
     }
 
