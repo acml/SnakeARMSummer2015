@@ -49,6 +49,7 @@ uint32_t branch(char **tokens, map_t map);
 uint32_t multiply(char **tokens);
 uint32_t findLabels(map_t *map);
 uint32_t dataProcessing(char **tokens);
+void binWriter(uint32_t ins, char *fileName);
 
 int main() {
     char str[80] = "mov r0, [1, =3]";
@@ -180,6 +181,13 @@ uint32_t findLabels(map_t *map) {
 
     //returns the address of last instruction
     return 100;    //dummy value
+}
+
+void binWriter(uint32_t ins, char *fileName) {
+	FILE *fp;
+	fp = fopen(fileName, "wb");
+	fwrite(&ins, 4, 1, fp);
+	fclose(fp);
 }
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
