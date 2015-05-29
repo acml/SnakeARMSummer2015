@@ -31,6 +31,7 @@
 #define SHIFT_TYPE_POS 5
 #define SHIFT_VALUE_POS 7
 #define RS_POS 8
+#define IMM_ROTATE_POS 8
 
 typedef struct linked_map {
     char *string;
@@ -334,7 +335,23 @@ uint32_t dataProcessing(char **tokens) {
     ins |= rn << RN_POS;
     ins |= isS << S_BIT;
     if (tokens[op2][0] == '#') {
-        //TODO: need shift function
+        uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
+        uint32_t shiftValue = 0;
+        int isRepresentable = 0;
+        while (!isRepresentable && shiftValue <= 30) {
+            if (immValue <= 0xFF) {
+                isRepresentable = 1;
+            } else {
+                immValue = (immValue >> 2) | (immValue << 30);
+                shiftValue += 2;
+            }
+        }
+        if (!isRepresentable) {
+            printf("Error: not representable");
+        } else {
+            ins |= immValue;
+            ins |= (shiftValue / 2) << IMM_ROTATE_POS;
+        }
     } else {
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
