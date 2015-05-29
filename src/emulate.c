@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
-#include <endian.h>
 
 #define BYTES_IN_WORD 4
 #define BITS_IN_WORD 32
@@ -185,6 +184,7 @@ state_t *newState(void) {
     state->isDecoded = 0;
     state->isFetched = 0;
     state->isTermainated = 0;
+
     return state;
 }
 
@@ -230,10 +230,13 @@ int outputState(state_t *state) {
     }
 
     printf("Non-zero memory:\n");
-    uint32_t *word = (uint32_t *) state->memory;
-    for (int i = 0; i < MEMORY_SIZE / BYTES_IN_WORD; i++) {
-        if (word[i] != 0) {
-            printf("0x%08x: 0x%08x\n", i * BYTES_IN_WORD, be32toh(word[i]));
+    for (int i = 0; i < MEMORY_SIZE; i += BYTES_IN_WORD) {
+        if (((uint32_t *) state->memory)[i / BYTES_IN_WORD] != 0) {
+            printf("0x%08x: 0x", i);
+            for (int j = 0; j < BYTES_IN_WORD; j++) {
+                printf("%02x", state->memory[i + j]);
+            }
+            printf("\n");
         }
     }
 
@@ -257,6 +260,7 @@ void execute(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
+
     if (decoded->ins == TERMINATION) {
         state->isTermainated = 1;
         return;
@@ -376,12 +380,10 @@ ins_t insTpye(uint32_t ins) {
         return SINGLE_DATA_TRANSFER;
     } else if (insBits == 2) {
         return BRANCH;
+    } else if (maskBits(ins, I_BIT, I_BIT) == 0 && maskBits(ins, 7, 4) == 9) {
+        return MULTIPLY;
     } else {
-        if (maskBits(ins, I_BIT, I_BIT) == 0 && maskBits(ins, 7, 4) == 9) {
-            return MULTIPLY;
-        } else {
-            return DATA_PROCESSING;
-        }
+        return DATA_PROCESSING;
     }
 }
 
@@ -455,6 +457,7 @@ shift_o shiftReg(state_t *state) {
         shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
     }
     uint32_t data = state->registers[decoded->rm];
+
     shift_o output;
     output.data = shiftData(data, decoded->shift, shiftValue);
     output.carry = shiftCarry(data, decoded->shift, shiftValue);
