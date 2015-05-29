@@ -48,6 +48,7 @@ void* get(map_t *root, char *string);
 char **tokens(char* str);
 uint32_t setBits(uint32_t ins, int value, int pos);
 uint32_t setBit(uint32_t ins, int pos);
+
 void branch(char **tokens, map_t *map, uint32_t curr_addr, 
         uint8_t *memory, uint32_t constsAdress);
 void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
@@ -80,7 +81,6 @@ int main(void) {
     return 0;
 
 
-
 }
 
 
@@ -105,14 +105,7 @@ uint32_t firstPass(FILE *fp, map_t *map) {
             address += 4;
         }
     }
-    
-    if (ferror(fp)) {
-        fprintf(stderr,"Oops, error reading file\n");
-        abort();
-    }
-
     return address;
-
 }
 
 uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory) {
@@ -286,6 +279,13 @@ void multiply(char **tokens, map_t *map, uint32_t curr_addr,
     int constField = 9;
     ins = ins | constField << MULTIPLY_CONST;
 
+}
+
+void binWriter(uint32_t ins, char *fileName) {
+	FILE *fp;
+	fp = fopen(fileName, "wb");
+	fwrite(&ins, 4, 1, fp);
+	fclose(fp);
 }
 
 
