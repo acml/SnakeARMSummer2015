@@ -48,26 +48,36 @@ void* get(map_t *root, char *string);
 char **tokens(char* str);
 uint32_t setBits(uint32_t ins, int value, int pos);
 uint32_t setBit(uint32_t ins, int pos);
-uint32_t branch(char **tokens, map_t map);
-uint32_t multiply(char **tokens);
-uint32_t findLabels(map_t *map);
-uint32_t dataProcessing(char **tokens);
+void branch(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress);
+void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress);
+
+void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress);
+void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress);
 uint32_t firstPass(FILE *fp, map_t *map);
-uint32_t secondPass(FILE *fp, map_t *map, uint32_t length, uint8_t *memory);
+uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory);
 int isLabel(char *buf);
+void functionMap(map_t *map);
 
 
 int main(void) {
-  FILE *fp;
-  fp = fopen("emulate.c", "r"); 
-  map_t *map = malloc(sizeof(map_t));
+    FILE *fp;
+    fp = fopen("emulate.c", "r"); 
+    map_t *funcMap = malloc(sizeof(map_t));
+    map_t *labelsMap = malloc(sizeof(map_t));
+    uint8_t *memory = malloc(MEMORY_SIZE);
+    memset(memory, 0, MEMORY_SIZE);
+    uint32_t size = firstPass(fp, labelsMap);
+    functionMap(funcMap);
+    secondPass(fp, labelsMap, funcMap, size, memory);
+    free(labelsMap);
+    free(funcMap);
+    fclose(fp);
 
-  uint8_t *memory = malloc(MEMORY_SIZE);
-  secondPass(fp, map, 0, memory);
-  free(map);
-  fclose(fp);
-
-  return 0;
+    return 0;
 
 
 
@@ -105,27 +115,62 @@ uint32_t firstPass(FILE *fp, map_t *map) {
 
 }
 
-uint32_t secondPass(FILE *fp, map_t *map, uint32_t length, uint8_t *memory) {
- /*   char buf[512];
-    int address = 0;
-    
+uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory) {
+    char buf[512];
+    uint32_t address = 0;
+    uint32_t constsAddress = length;
     while (fgets (buf, sizeof(buf), fp)) {
         if(!isLabel(buf)) {
-            address += 4;
+            
             char** tok = tokens(buf);
-
-            put(map, buf, address);
+            void *(*func)(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress) = get(funcMap, tok[0]);
+            func(tok, labelsMap, address, memory, constsAddress);
+            address += 4;
         } 
     }
 
     if (ferror(fp)) {
         fprintf(stderr,"Oops, error reading file\n");
         abort();
-    }*/
+    }
     return 0;
 }
 
-void put(map_t *root, char *string, void* value) {
+
+void functionMap(map_t *map) {
+    put(map, "add", &dataProcessing);
+    put(map, "sub", &dataProcessing);
+    put(map, "rsb", &dataProcessing);
+    put(map, "and", &dataProcessing);
+    put(map, "eor", &dataProcessing);
+    put(map, "orr", &dataProcessing);
+    put(map, "mov", &dataProcessing);
+    put(map, "tst", &dataProcessing);
+    put(map, "teq", &dataProcessing);
+    put(map, "cmp", &dataProcessing);
+    put(map, "andeq", &dataProcessing);
+
+    put(map, "mul", &multiply);
+    put(map, "mla", &multiply);
+
+    put(map, "ldr", &sDataTrans);
+    put(map, "str", &sDataTrans);
+
+    put(map, "beq", &branch);
+    put(map, "bne", &branch);
+    put(map, "bge", &branch);
+    put(map, "blt", &branch);
+    put(map, "bgt", &branch);
+    put(map, "ble", &branch);
+    put(map, "b", &branch);
+
+
+
+
+}
+
+void put(map_t *root, char *string, void *value) {
     if (root == NULL) {
         root = malloc(sizeof(map_t));
         root->string = string;
@@ -149,6 +194,8 @@ void* get(map_t *root, char *string) {
     return root->value;
 }
 
+
+
 char** tokens(char* str) {
 
     const char *s = ", ";
@@ -170,7 +217,8 @@ uint32_t setBits(uint32_t ins, int value, int pos) {
     return ins | (value << pos);
 }
 
-uint32_t branch(char **tokens, map_t map) {
+void branch(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress) {
  /*   uint32_t ins = 0;
 
     //strcmp returns 0 if there's a match, 1 if no match
@@ -213,13 +261,13 @@ uint32_t branch(char **tokens, map_t map) {
     //set offset
     //ins = ins | offset;
 */
-    return 0;
 }
 
 
 
 
-uint32_t multiply(char **tokens) {
+void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
     if (!strcmp(tokens[0], "mla")) {
         //mla
@@ -237,18 +285,13 @@ uint32_t multiply(char **tokens) {
     ins = ins | cond << COND_POS;
     int constField = 9;
     ins = ins | constField << MULTIPLY_CONST;
-    return ins;
+
 }
 
-uint32_t findLabels(map_t *map) {
-    //TODO implement this
-
-    //returns the address of last instruction
-    return 100;    //dummy value
-}
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
-uint32_t sDataTrans(char **tokens, uint32_t *constAdress) {
+void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
 
     //Check if closing bracket is in tokens[1]
@@ -277,7 +320,7 @@ uint32_t sDataTrans(char **tokens, uint32_t *constAdress) {
             ins = setBits(ins, 1, I_BIT);
             ins = setBits(ins, 0xd, OPCODE_POS);
             ins = setBits(ins, immValue, OFFSET_POS);
-            return ins;
+            return;
         } else {
             //TODO save constants after program terminates
         }
@@ -358,10 +401,11 @@ uint32_t sDataTrans(char **tokens, uint32_t *constAdress) {
         ins = setBits(ins, 0, 5);
     }
 
-    return ins;
+
 }
 
-uint32_t dataProcessing(char **tokens) {
+void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr, 
+        uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
     uint32_t opcode = 0;
@@ -457,5 +501,4 @@ uint32_t dataProcessing(char **tokens) {
             ins |= rs << RS_POS;
         }
     }
-    return ins;
 }
