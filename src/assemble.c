@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <err.h>
 #include <string.h>
 #include <assert.h>
 
@@ -33,14 +34,16 @@
 #define RS_POS 8
 #define IMM_ROTATE_POS 8
 
+#define MEMORY_SIZE 65536
+
 typedef struct linked_map {
     char *string;
-    uint32_t integer;
+    void *value;
     struct linked_map *next;
 } map_t;
 
-void put(map_t *root, char *string, uint32_t integer);
-uint32_t get(map_t *root, char *string);
+void put(map_t *root, char *string, void* value);
+void* get(map_t *root, char *string);
 
 char **tokens(char* str);
 uint32_t setBits(uint32_t ins, int value, int pos);
@@ -49,25 +52,84 @@ uint32_t branch(char **tokens, map_t map);
 uint32_t multiply(char **tokens);
 uint32_t findLabels(map_t *map);
 uint32_t dataProcessing(char **tokens);
+uint32_t firstPass(FILE *fp, map_t *map);
+uint32_t secondPass(FILE *fp, map_t *map, uint32_t length, uint8_t *memory);
+int isLabel(char *buf);
 
-int main() {
-    char str[80] = "mov r0, [1, =3]";
-    char **strArrPtr = tokens(str);
-    for (int i = 0; i < 10; i++) {
-        if (strArrPtr[i] == NULL) {
-            break;
-        }
-        printf("%s\n", strArrPtr[i]);
-    }
 
-    return (0);
+int main(void) {
+  FILE *fp;
+  fp = fopen("emulate.c", "r"); 
+  map_t *map = malloc(sizeof(map_t));
+
+  uint8_t *memory = malloc(MEMORY_SIZE);
+  secondPass(fp, map, 0, memory);
+  free(map);
+  fclose(fp);
+
+  return 0;
+
+
+
 }
 
-void put(map_t *root, char *string, uint32_t integer) {
+
+int isLabel(char *buf) {
+    while(*buf != '\0') {
+        if(*buf == ':') {
+            return 1;
+        }
+        ++buf;
+    }
+    return 0;
+}
+
+uint32_t firstPass(FILE *fp, map_t *map) {
+    char buf[512];
+    int address = 0;
+    
+    while (fgets (buf, sizeof(buf), fp)) {
+        if(isLabel(buf)) {
+            put(map, buf, &address);
+        } else {
+            address += 4;
+        }
+    }
+    
+    if (ferror(fp)) {
+        fprintf(stderr,"Oops, error reading file\n");
+        abort();
+    }
+
+    return address;
+
+}
+
+uint32_t secondPass(FILE *fp, map_t *map, uint32_t length, uint8_t *memory) {
+ /*   char buf[512];
+    int address = 0;
+    
+    while (fgets (buf, sizeof(buf), fp)) {
+        if(!isLabel(buf)) {
+            address += 4;
+            char** tok = tokens(buf);
+
+            put(map, buf, address);
+        } 
+    }
+
+    if (ferror(fp)) {
+        fprintf(stderr,"Oops, error reading file\n");
+        abort();
+    }*/
+    return 0;
+}
+
+void put(map_t *root, char *string, void* value) {
     if (root == NULL) {
         root = malloc(sizeof(map_t));
         root->string = string;
-        root->integer = integer;
+        root->value = value;
         root->next = NULL;
     }
     while (root->next != NULL) {
@@ -75,16 +137,16 @@ void put(map_t *root, char *string, uint32_t integer) {
     }
     map_t *newMap = malloc(sizeof(map_t));
     newMap->string = string;
-    newMap->integer = integer;
+    newMap->value = value;
     newMap->next = NULL;
     root->next = newMap;
 }
 
-uint32_t get(map_t *root, char *string) {
+void* get(map_t *root, char *string) {
     while (strcmp(root->string, string)) {
         root = root->next;
     }
-    return root->integer;
+    return root->value;
 }
 
 char** tokens(char* str) {
@@ -153,6 +215,9 @@ uint32_t branch(char **tokens, map_t map) {
 */
     return 0;
 }
+
+
+
 
 uint32_t multiply(char **tokens) {
     uint32_t ins = 0;
