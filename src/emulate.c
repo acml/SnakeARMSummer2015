@@ -126,11 +126,6 @@ void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
 
-uint32_t offestAddress(uint32_t address, int isU, uint32_t offset);
-void singleDataTransfer_ldr(state_t *state, uint32_t address);
-void singleDataTransfer_str(state_t *state, uint32_t address);
-uint32_t bytesToWord(uint8_t *bytes);
-
 int main(int argc, char **argv) {
     state_t *state = newState();
     if (state == NULL) {
@@ -319,19 +314,11 @@ void decode(state_t *state) {
             decoded->rn = tmp;
             decoded->rs = maskBits(instruction, 11, 8);
             decoded->rm = maskBits(instruction, 3, 0);
-        } else if (decoded->ins == DATA_PROCESSING) {
-            if (!decoded->isI) {
-                decoded->rm = maskBits(instruction, 3, 0);
-                if (decoded->isRegShiftValue) {
-                    decoded->rs = maskBits(instruction, 11, 8);
-                }
-            }
-        } else if (decoded->ins == SINGLE_DATA_TRANSFER) {
-            if (decoded->isI) {
-                decoded->rm = maskBits(instruction, 3, 0);
-                if (decoded->isRegShiftValue) {
-                    decoded->rs = maskBits(instruction, 11, 8);
-                }
+        } else if ((decoded->ins == DATA_PROCESSING && !decoded->isI) ||
+                   (decoded->ins == SINGLE_DATA_TRANSFER && decoded->isI)) {
+            decoded->rm = maskBits(instruction, 3, 0);
+            if (decoded->isRegShiftValue) {
+                decoded->rs = maskBits(instruction, 11, 8);
             }
         }
     }
@@ -589,13 +576,13 @@ void singleDataTransfer(state_t *state) {
     } else {
         offset = decoded->immValue;
     }
+    if (!decoded->isU) {
+        offset = -offset;
+    }
+
     uint32_t address = state->registers[decoded->rn];
     if (decoded->isP) {
-        address = offestAddress(address, decoded->isU, offset);
-    }
-    //TODO might be broken
-    else if (decoded->rn == PC_REG) {
-        //address += PC_AHEAD_BYTES;
+        address += offset;
     }
 
     if (address > MEMORY_SIZE) {
@@ -603,42 +590,24 @@ void singleDataTransfer(state_t *state) {
                 address);
         return;
     }
+
     if (decoded->isL) {
-        singleDataTransfer_ldr(state, address);
+        state->registers[decoded->rd] = *((uint32_t *) &state->memory[address]);
     } else {
-        singleDataTransfer_str(state, address);
+        *((uint32_t *) &state->memory[address]) = state->registers[decoded->rd];
     }
 
     if (!decoded->isP) {
-        state->registers[decoded->rn] += offset;
+        address += offset;
+        if (decoded->rn == PC_REG) {
+            address += PC_AHEAD_BYTES;
+        }
+        state->registers[decoded->rn] = address;
     }
-}
-
-uint32_t offestAddress(uint32_t address, int isU, uint32_t offset) {
-    if (isU) {
-        return address + offset;
-    } else {
-        return address - offset;
-    }
-}
-
-// Loads data from memory to register
-void singleDataTransfer_ldr(state_t *state, uint32_t address) {
-    state->registers[state->decoded->rd] = bytesToWord(&state->memory[address]);
-}
-
-// Stores data from register to memory
-void singleDataTransfer_str(state_t *state, uint32_t address) {
-    uint32_t *word = (uint32_t *) &state->memory[address];
-    *word = state->registers[state->decoded->rd];
 }
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
     state->isDecoded = 0;
     state->isFetched = 0;
-}
-
-uint32_t bytesToWord(uint8_t *bytes) {
-    return bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
 }
