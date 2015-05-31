@@ -63,6 +63,12 @@ uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length,
 int isLabel(char *buf);
 void functionMap(map_t *map);
 
+// single data transfer helper functions
+uint32_t setIndexing(char **tokens, uint32_t ins);
+uint32_t setImmValue(uint32_t ins, char **tokens);
+uint32_t setRnValue(char **tokens, uint32_t ins) ;
+uint32_t setShiftType(uint32_t ins, char *shiftType);
+uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
 int main(void) {
     FILE *fp;
@@ -79,10 +85,7 @@ int main(void) {
     fclose(fp);
 
     return 0;
-
-
 }
-
 
 int isLabel(char *buf) {
     while(*buf != '\0') {
@@ -114,7 +117,6 @@ uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length,
     uint32_t constsAddress = length;
     while (fgets (buf, sizeof(buf), fp)) {
         if(!isLabel(buf)) {
-            
             char** tok = tokens(buf);
             void *(*func)(char **tokens, map_t *map, uint32_t curr_addr, 
         uint8_t *memory, uint32_t constsAdress) = get(funcMap, tok[0]);
@@ -157,10 +159,6 @@ void functionMap(map_t *map) {
     put(map, "bgt", &branch);
     put(map, "ble", &branch);
     put(map, "b", &branch);
-
-
-
-
 }
 
 void put(map_t *root, char *string, void *value) {
@@ -187,10 +185,7 @@ void* get(map_t *root, char *string) {
     return root->value;
 }
 
-
-
 char** tokens(char* str) {
-
     const char *s = ", ";
     char **tokArrPtr = malloc(sizeof(char*) * 10);
     char *token;
@@ -256,9 +251,6 @@ void branch(char **tokens, map_t *map, uint32_t curr_addr,
 */
 }
 
-
-
-
 void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
         uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
@@ -288,56 +280,33 @@ void binWriter(uint32_t ins, char *fileName) {
 	fclose(fp);
 }
 
-
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
 void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr, 
         uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
 
-    //Check if closing bracket is in tokens[1]
-    int postIndexing = 0;
-    int i = 0;
-    while (postIndexing == 0 && tokens[1][i] != '\0') {
-        if (tokens[1][i] == ']') {
-            postIndexing = 1;
-        }
-        i++;
-    }
-    if (!postIndexing) {
-        ins = setBits(ins, 1, P_BIT);
-    }
+    ins = setIndexing(tokens, ins);
+    // set value of Rd 
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
-
+    // set instruction type
+    int isLoad = 0;
     if (!strcmp(tokens[0], "ldr")) {
         ins = setBits(ins, 1, L_BIT);
+        isLoad = 1;
     }
-    if (tokens[2][0] == '=') {
+    // address as a numeric constant form
+    if(isLoad == 1) {
         //Immediate value expression
-        int immValue = strtol(tokens[2] + 1, NULL, 0);
-        if (immValue <= 0xff) {
-
-            ins = setBits(ins, 1, I_BIT);
-            ins = setBits(ins, 0xd, OPCODE_POS);
-            ins = setBits(ins, immValue, OFFSET_POS);
-            return;
-        } else {
-            //TODO save constants after program terminates
+        if (tokens[2][0] == '=') {
+            ins = setImmValue(ins, tokens);
         }
-
-        
     } else {
-
         int setU = 0;
-        int rn = 0;
+        ins = setRnValue(tokens, ins);
         int rm = 0;
         int iBitValue = 0;
-        if ((!strcmp(tokens[3], "r15"))) {
-            rn = 15;
-            // TODO check the rest of the code :P
-        } else {
-            rn = strtol(tokens[2] + 1, NULL, 0);
-        }
+        
         if (tokens[3] == NULL) {
             // set offset to 0
             ins = setBits(ins, 0, OFFSET_POS);
@@ -358,50 +327,90 @@ void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
             if (tokens[3][0] != '-') {
                 setU = 1;
             }
-
             // shift cases
             if (tokens[4] != NULL) {
                 char *from = tokens[4];
                 char *shiftType = strndup(from, 3); // takes first 3 chars from token line
                 char *shiftValue = strdup(from + 4); // takes chars from position 4
-                int shiftBits = 0;
-                if (!strcmp(shiftType, "lsl")) {
-                    shiftBits = 0x0; //00
-                } else if (!strcmp(shiftType, "lsr")) {
-                    shiftBits = 0x1; //01
-                } else if (!strcmp(shiftType, " asr")) {
-                    shiftBits = 0x2; //10
-                } else if (!strcmp(shiftType, " ror")) {
-                    shiftBits = 0x3; //11
-                }
-
-                setBits(ins, shiftBits, 5);
-                if (shiftValue[0] == '#') {
-                    int shiftInt = strtol(shiftValue + 1, NULL, 0);
-                    assert(shiftInt < 16);
-                    ins = setBits(ins, shiftInt, 7);
-                } else {
-                    int rs = strtol(shiftValue + 1, NULL, 0);
-                    ins = setBits(ins, rs, 8);
-                    ins = setBits(ins, 1, 4);
-                }
+                ins = setShiftType(ins, shiftType);
+                ins = setShiftValue(ins, shiftValue);
             }
             iBitValue = 1;
         }
-
-
-
         ins = setBits(ins, 0xe, COND_POS);
         ins = setBits(ins, iBitValue, I_BIT);
-        ins = setBits(ins, 1, P_BIT);
-        ins = setBits(ins, rn, RN_POS);
         ins = setBits(ins, setU, U_BIT);
         ins = setBits(ins, rm, RM_POS);
-
         ins = setBits(ins, 0, 5);
     }
+}
 
+uint32_t setIndexing(char **tokens, uint32_t ins) {
+    int postIndexing = 0;
+    int i = 0;
+    //Check if closing bracket is in tokens[1]
+    while (postIndexing == 0 && tokens[1][i] != '\0') {
+        if (tokens[1][i] == ']') {
+            postIndexing = 1;
+        }
+        i++;
+    }
+    if (!postIndexing) {
+        ins = setBits(ins, 1, P_BIT);
+    }
+    return ins;
+}
 
+uint32_t setImmValue(uint32_t ins, char **tokens) {
+    int immValue = strtol(tokens[2] + 1, NULL, 0);
+    if (immValue <= 0xff) {
+        ins = setBits(ins, 1, I_BIT);
+        ins = setBits(ins, 0xd, OPCODE_POS);
+        ins = setBits(ins, immValue, OFFSET_POS);
+        return ins;
+    } else {
+        //TODO save constants after program terminates
+        return 0;
+    }
+}
+
+uint32_t setRnValue(char **tokens, uint32_t ins) {
+    int rn = 0;
+    if ((!strcmp(tokens[3], "r15"))) {
+        rn = 15;
+    } else {
+        rn = strtol(tokens[2] + 1, NULL, 0);
+    }
+    ins = setBits(ins, rn, RN_POS);
+    return ins;
+}
+
+uint32_t setShiftType(uint32_t ins, char *shiftType) {
+    int shiftBits = 0;
+    if (!strcmp(shiftType, "lsl")) {
+        shiftBits = 0x0; //00
+    } else if (!strcmp(shiftType, "lsr")) {
+        shiftBits = 0x1; //01
+    } else if (!strcmp(shiftType, " asr")) {
+        shiftBits = 0x2; //10
+    } else if (!strcmp(shiftType, " ror")) {
+        shiftBits = 0x3; //11
+    }
+    ins = setBits(ins, shiftBits, 5);
+    return ins;
+}
+
+uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
+    if (shiftValue[0] == '#') {
+        int shiftInt = strtol(shiftValue + 1, NULL, 0);
+        assert(shiftInt < 16);
+        ins = setBits(ins, shiftInt, 7);
+    } else {
+        int rs = strtol(shiftValue + 1, NULL, 0);
+        ins = setBits(ins, rs, 8);
+        ins = setBits(ins, 1, 4);
+    }
+    return ins;
 }
 
 void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr, 
