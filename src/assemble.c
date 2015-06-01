@@ -7,6 +7,7 @@
 
 #define MAX_LINE_LENGTH 512
 #define BYTES_IN_WORD 4
+#define BITS_IN_BYTE 8
 
 #define INT_BASE 10
 
@@ -67,6 +68,7 @@ int isLabel(char *buf);
 map_t initOpcodeMap(void);
 map_t initCondMap(void);
 map_t initShiftMap(void);
+void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
 
 char **tokenizer(char *buf);
 
@@ -269,6 +271,13 @@ map_t initShiftMap(void) {
     mapPut(&shiftMap, "asr", 0x2);
     mapPut(&shiftMap, "ror", 0x3);
     return shiftMap;
+}
+
+void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
+    for (int i = 0; i < BYTES_IN_WORD; i++) {
+        memory[address + i] = (uint8_t) word;
+        word >>= BITS_IN_BYTE;
+    }
 }
 
 char **tokenizer(char *buf) {
