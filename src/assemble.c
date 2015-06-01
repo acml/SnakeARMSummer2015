@@ -20,7 +20,7 @@
 #define U_BIT 23
 #define L_BIT 20
 
-#define MULTIPLY_CONST 16
+#define MULTIPLY_CONST 4
 #define MULTIPLY_RD 16
 #define MULTIPLY_RN 12
 #define MULTIPLY_RS 8
@@ -91,7 +91,7 @@ uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
 int main(int argc, char **argv) {
-	printf("test");
+
     if (argc < 3) {
         printf("Input file and/or output file not specified.\n");
         exit(EXIT_FAILURE);
@@ -353,7 +353,7 @@ char **tokenizer(char *buf) {
     int i = 0;
     while (token != NULL) {
         tokens[i] = token;
-        token = strtok(NULL, ",");
+        token = strtok(NULL, " ,");
         i++;
     }
     return tokens;
@@ -466,9 +466,12 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 	} else if (tokens[3][0] == '#') {
 		// set offset to value of expression
 		int expValue = strtol(tokens[3] + 1, NULL, 0);
-		ins = setBits(ins, expValue, OFFSET_POS);
+
 		if (expValue < 0) {
+			ins = setBits(ins, -expValue, OFFSET_POS);
 			setU = 0;
+		} else {
+			ins = setBits(ins, expValue, OFFSET_POS);
 		}
 	} else {
 		// if offset of base register is represented by a register
@@ -504,14 +507,14 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 uint32_t setIndexing(char **tokens, uint32_t ins) {
     int postIndexing = 0;
     int i = 0;
-    //Check if closing bracket is in tokens[1]
-    while (postIndexing == 0 && tokens[1][i] != '\0') {
-        if (tokens[1][i] == ']') {
+    //Check if closing bracket is in tokens[2]
+    while (postIndexing == 0 && tokens[2][i] != '\0') {
+        if (tokens[2][i] == ']') {
             postIndexing = 1;
         }
         i++;
     }
-    if (!postIndexing) {
+    if (!postIndexing || tokens[3] == NULL) {
         ins = setBits(ins, 1, P_BIT);
     }
     return ins;
@@ -627,7 +630,8 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         op2 = 2;
     } else if (!strcmp(tokens[0], "teq")) {
         opcode = 0x9;
-        rn = strtol(tokens[1] + 1, NULL, 0);
+        rn = strtol(tokens[1] + 1, NULL, 10);
+        printf("%s \n", tokens[1] + 1);
         isS = 1;
         op2 = 2;
     } else if (!strcmp(tokens[0], "cmp")) {
@@ -641,6 +645,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
     }
     ins |= opcode << OPCODE_POS;
     ins |= rd << RD_POS;
+
     ins |= rn << RN_POS;
     ins |= isS << S_BIT;
     if (tokens[op2][0] == '#') {
@@ -690,5 +695,3 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
     }
     storeWord(memory, address, ins);
 }
-
-
