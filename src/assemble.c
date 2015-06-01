@@ -361,38 +361,37 @@ char **tokenizer(char *buf) {
 
 void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap) {
-    /*   uint32_t ins = 0;
+     uint32_t ins = 0;
 
      //strcmp returns 0 if there's a match, 1 if no match
      //0 is false, hence !0 indicates there's a match
      //trying to work out what cond should be
-     uint32_t cond;
-     if (!strcmp(tokens[0], " beq")) {
+     char *condStr = {tokens[0][1], tokens[0][2]};
+     uint32_t cond = mapGet(condMap, condStr);
+
+     /*if (!strcmp(tokens[0], "beq")) {
      cond = 0x0; //0000
-     } else if (!strcmp(tokens[0], " bne")) {
+     } else if (!strcmp(tokens[0], "bne")) {
      cond = 0x1; //0001
-     } else if (!strcmp(tokens[0], " bge")) {
+     } else if (!strcmp(tokens[0], "bge")) {
      cond = 0xa; //1010
-     } else if (!strcmp(tokens[0], " blt")) {
+     } else if (!strcmp(tokens[0], "blt")) {
      cond = 0xb; //1011
-     } else if (!strcmp(tokens[0], " bgt")) {
+     } else if (!strcmp(tokens[0], "bgt")) {
      cond = 0xc; //1100
-     } else if (!strcmp(tokens[0], " ble")) {
+     } else if (!strcmp(tokens[0], "ble")) {
      cond = 0xd; //1101
      } else {
      //b or bal
      cond = 0xe; //1110
-     }
+     }*/
 
      //for bits 27-24
      uint32_t constant = 0xa;
 
      //calculate the offset
-     uint32_t offset = 0;
-     uint32_t next_addr = get(map, tokens[1]);
-     uint32_t curr_addr; //somehow get the current address
-     //TODO
-     //offset = next address - (current address + 8);
+     uint32_t next_addr = mapGet(labelMap, tokens[1]);
+     uint32_t offset = next address - (address + 8);
 
      //set cond
      ins = ins | cond << 28;
@@ -401,9 +400,9 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
      ins = ins | constant << 24;
 
      //set offset
-     //ins = ins | offset;
-     */
-	//storeWord(memory, address, ins);
+     ins = ins | offset;
+     
+	 storeWord(memory, address, ins);
 }
 
 void multiply(char **tokens, uint8_t *memory, uint32_t address) {
