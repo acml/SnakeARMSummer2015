@@ -295,7 +295,7 @@ map_t initRoutingMap(void) {
     mapPut(&routingMap, "bne", 3);
     mapPut(&routingMap, "beq", 3);
 
-    //lsl not necessary
+    mapPut(&routingMap, "lsl", 0);
     mapPut(&routingMap, "andeq", 0);
 
     return routingMap;
@@ -587,6 +587,12 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
 
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap) {
+    if (!strcmp(tokens[0], "lsl")) {
+            tokens[3] = tokens[0];
+            tokens[4] = tokens[2];
+            tokens[0] = "mov";
+            tokens[2] = tokens[1];
+    }
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
     uint32_t opcode = 0;
@@ -594,6 +600,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
     uint32_t rn = 0;
     int isS = 0;
     int op2 = 3;
+
     if (!strcmp(tokens[0], "and")) {
         opcode = 0x0;
         rd = strtol(tokens[1] + 1, NULL, 0);
