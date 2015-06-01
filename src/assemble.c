@@ -211,6 +211,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     map_t routingMap = initRoutingMap();
     uint32_t address = 0;
 
+
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
@@ -218,7 +219,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
             char **tokens = tokenizer(buf);
             if(tokens[0] == NULL) {
                 free(tokens);
-                address += BYTES_IN_WORD;
+
                 continue;
             }
             int route = mapGet(&routingMap, tokens[0]);
