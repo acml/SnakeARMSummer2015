@@ -5,6 +5,9 @@
 #include <string.h>
 #include <assert.h>
 
+#define MAX_LINE_LENGTH 512
+#define BYTES_IN_WORD 4
+
 #define INT_BASE 10
 
 #define I_BIT 25
@@ -49,6 +52,14 @@ void mapFreeElem(map_e *elem);
 void mapInit(map_t *m);
 void mapPut(map_t *m, char *string, int integer);
 
+uint32_t assembly(char **argv, uint8_t *memory);
+uint32_t firstPass(FILE *fp, map_t *labelMap);
+uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory);
+
+map_t initOpcodeMap(void);
+map_t initCondMap(void);
+map_t initShiftMap(void);
+
 char **tokens(char* str);
 uint32_t setBits(uint32_t ins, int value, int pos);
 //uint32_t setBit(uint32_t ins, int pos);
@@ -62,8 +73,6 @@ void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
 void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
-uint32_t firstPass(FILE *fp, map_t *map);
-uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory);
 int isLabel(char *buf);
 //void functionMap(map_t *map);
 
@@ -74,19 +83,20 @@ uint32_t setRnValue(char **tokens, uint32_t ins) ;
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
-int main(void) {
-    FILE *fp;
-    fp = fopen("emulate.c", "r");
-    map_t *funcMap = malloc(sizeof(map_t));
-    map_t *labelsMap = malloc(sizeof(map_t));
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        printf("Input file and/or output file not specified.\n");
+        exit(EXIT_FAILURE);
+    }
+
     uint8_t *memory = malloc(MEMORY_SIZE);
+    if (memory == NULL) {
+        perror("memory");
+        exit(EXIT_FAILURE);
+    }
     memset(memory, 0, MEMORY_SIZE);
-    uint32_t size = firstPass(fp, labelsMap);
+
 //    functionMap(funcMap);
-    secondPass(fp, labelsMap, funcMap, size, memory);
-    free(labelsMap);
-    free(funcMap);
-    fclose(fp);
 
     return 0;
 }
@@ -124,49 +134,95 @@ int mapGet(map_t *m, char *string) {
     return elem->integer;
 }
 
-int isLabel(char *buf) {
-    while(*buf != '\0') {
-        if(*buf == ':') {
-            return 1;
-        }
-        ++buf;
+uint32_t assembly(char **argv, uint8_t *memory) {
+    FILE *fp = fopen(argv[1], "r");
+    if (fp == NULL) {
+        printf("Could not open input file.\n");
+        exit(EXIT_FAILURE);
     }
-    return 0;
+
+    map_t labelMap;
+    mapInit(&labelMap);
+
+    uint32_t programLength = firstPass(fp, &labelMap);
+    uint32_t totalLength = secondPass(fp, &labelMap, programLength, memory);
+
+    fclose(fp);
+    return totalLength;
 }
 
-uint32_t firstPass(FILE *fp, map_t *map) {
-    char buf[512];
-    int address = 0;
-
-    while (fgets (buf, sizeof(buf), fp)) {
+uint32_t firstPass(FILE *fp, map_t *labelMap) {
+    uint32_t address = 0;
+    char buf[MAX_LINE_LENGTH];
+    while (fgets(buf, sizeof(buf), fp) != NULL) {
         if(isLabel(buf)) {
-//            put(map, buf, &address);
+            mapPut(labelMap, buf, address);
         } else {
-            address += 4;
+            address += BYTES_IN_WORD;
         }
     }
     return address;
 }
 
-uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory) {
-    char buf[512];
+int isLabel(char *buf) {
+    return buf[strlen(buf) - 1] == ':';
+}
+
+map_t initOpcodeMap(void) {
+    map_t opcodeMap;
+    mapInit(opcodeMap);
+    mapPut(opcodeMap, "and", 0x0);
+    mapPut(opcodeMap, "eor", 0x1);
+    mapPut(opcodeMap, "sub", 0x2);
+    mapPut(opcodeMap, "rsb", 0x3);
+    mapPut(opcodeMap, "add", 0x4);
+    mapPut(opcodeMap, "orr", 0xc);
+    mapPut(opcodeMap, "mov", 0xd);
+    mapPut(opcodeMap, "tst", 0x8);
+    mapPut(opcodeMap, "teq", 0x9);
+    mapPut(opcodeMap, "cmp", 0xa);
+    return opcodeMap;
+}
+
+map_t initCondMap(void) {
+    map_t condMap;
+    mapInit(condMap);
+    mapPut(condMap, "eq", 0x0);
+    mapPut(condMap, "ne", 0x1);
+    mapPut(condMap, "ge", 0xa);
+    mapPut(condMap, "lt", 0xb);
+    mapPut(condMap, "gt", 0xc);
+    mapPut(condMap, "le", 0xd);
+    mapPut(condMap, "al", 0xe);
+    mapPut(condMap, "", 0xe);
+    return condMap;
+}
+
+map_t initShiftMap(void) {
+    map_t shiftMap;
+    mapInit(shiftMap);
+    mapPut(shiftMap, "lsl", 0x0);
+    mapPut(shiftMap, "lsr", 0x1);
+    mapPut(shiftMap, "asr", 0x2);
+    mapPut(shiftMap, "ror", 0x3);
+    return shiftMap;
+}
+
+uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory) {
+    map_t opcodeMap = initOpcodeMap();
+    map_t condMap = initCondMap();
+    map_t shiftMap = initShiftMap();
+
     uint32_t address = 0;
-//    uint32_t constsAddress = length;
-    while (fgets (buf, sizeof(buf), fp)) {
+    uint32_t totalLength = programLength;
+    char buf[MAX_LINE_LENGTH];
+    while (fgets(buf, sizeof(buf), fp) != NULL) {
         if(!isLabel(buf)) {
-//            char** tok = tokens(buf);
-//            void *(*func)(char **tokens, map_t *map, uint32_t curr_addr,
-//        uint8_t *memory, uint32_t constsAdress) = get(funcMap, tok[0]);
-//            func(tok, labelsMap, address, memory, constsAddress);
-            address += 4;
+            //TODO
+            address += BYTES_IN_WORD;
         }
     }
-
-    if (ferror(fp)) {
-        fprintf(stderr,"Oops, error reading file\n");
-        abort();
-    }
-    return 0;
+    return totalLength;
 }
 
 
