@@ -67,7 +67,7 @@ map_t initOpcodeMap(void);
 map_t initCondMap(void);
 map_t initShiftMap(void);
 
-char **tokens(char* str);
+char **tokenizer(char *buf);
 
 void branch(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
@@ -199,7 +199,9 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if(!isLabel(buf)) {
+            char **tokens = tokenizer(buf);
             //TODO
+            free(tokens);
             address += BYTES_IN_WORD;
         }
     }
@@ -269,6 +271,20 @@ map_t initShiftMap(void) {
     return shiftMap;
 }
 
+char **tokenizer(char *buf) {
+    char **tokens = malloc(sizeof(char *) * 10);
+    char copy[MAX_LINE_LENGTH];
+    strcpy(copy, buf);
+    char *token = strtok(buf, " ");
+    int i = 0;
+    while (token != NULL) {
+        tokens[i] = token;
+        token = strtok(NULL, ",");
+        i++;
+    }
+    return tokens;
+}
+
 /*void functionMap(map_t *map) {
     put(map, "add", &dataProcessing);
     put(map, "sub", &dataProcessing);
@@ -296,22 +312,6 @@ map_t initShiftMap(void) {
     put(map, "ble", &branch);
     put(map, "b", &branch);
 }*/
-
-char** tokens(char* str) {
-    const char *s = ", ";
-    char **tokArrPtr = malloc(sizeof(char*) * 10);
-    char *token;
-    token = strtok(str, s);
-    int i = 0;
-
-    while (token != NULL) {
-        tokArrPtr[i] = token;
-        token = strtok(NULL, s);
-        i++;
-    }
-    tokArrPtr[i] = NULL;
-    return tokArrPtr;
-}
 
 void branch(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress) {
