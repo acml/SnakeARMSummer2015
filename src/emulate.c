@@ -435,7 +435,7 @@ int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
     if (shiftValue == 0) {
         return 0;
     }
-    int carryBit;
+    int carryBit = 0;
     switch (shift) {
         case LSL:
             carryBit = BITS_IN_WORD - shiftValue;
@@ -487,7 +487,7 @@ void dataProcessing(state_t *state) {
         carry = output.carry;
     }
 
-    uint32_t result;
+    uint32_t result = 0;
     switch (decoded->opcode) {
         case AND:
         case TST:
@@ -567,7 +567,16 @@ void multiply(state_t *state) {
 }
 
 int checkPinAddresses(uint32_t address) {
+	if(address == 0x20200028) {
+	    printf("PIN OFF\n");
+	    return 1;
+    } 
+    if(address == 0x2020001C) {
+        printf("PIN ON\n");
+        return 1;
+    }
     if(address == 0x20200000) {
+
         printf("One GPIO pin from 0 to 9 has been accessed\n");
         return 1;
     } 
@@ -575,7 +584,7 @@ int checkPinAddresses(uint32_t address) {
         printf("One GPIO pin from 10 to 19 has been accessed\n");
         return 1;
     } 
-    if (address = 0x20200008) {
+    if (address == 0x20200008) {
         printf("One GPIO pin from 20 to 29 has been accessed\n");
         return 1;
     }
@@ -605,11 +614,11 @@ void singleDataTransfer(state_t *state) {
     }
 
     if (address > MEMORY_SIZE) {
-        if(address == 0x20200028) {
-            printf("PIN OFF");
-        } else if(address == 0x2020001C) {
-            printf("PIN ON");
-        } else if (!checkPinAddresses(address)) {
+		if (checkPinAddresses(address)) {
+			if(decoded->isL) {
+				state->registers[decoded->rd] = address;
+			}
+		} else {
             printf("Error: Out of bounds memory access at address 0x%08x\n",
                 address);   
         }
