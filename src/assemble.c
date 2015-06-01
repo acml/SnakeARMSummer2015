@@ -59,7 +59,8 @@ uint32_t setBits(uint32_t ins, uint32_t val, int pos);
 
 uint32_t assembly(char **argv, uint8_t *memory);
 uint32_t firstPass(FILE *fp, map_t *labelMap);
-uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory);
+uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
+        uint8_t *memory);
 void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength);
 
 int isLabel(char *buf);
@@ -69,21 +70,18 @@ map_t initShiftMap(void);
 
 char **tokenizer(char *buf);
 
-void branch(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress);
-void multiply(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress);
-
-void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress);
-void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress);
-//void functionMap(map_t *map);
+void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
+        map_t *condMap);
+void multiply(char **tokens, uint8_t *memory, uint32_t address);
+void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
+        map_t *shiftMap, uint32_t totalLength);
+void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
+        map_t *opcodeMap, map_t *shiftMap);
 
 // single data transfer helper functions
 uint32_t setIndexing(char **tokens, uint32_t ins);
 uint32_t setImmValue(uint32_t ins, char **tokens);
-uint32_t setRnValue(char **tokens, uint32_t ins) ;
+uint32_t setRnValue(char **tokens, uint32_t ins);
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
@@ -180,7 +178,7 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if(isLabel(buf)) {
+        if (isLabel(buf)) {
             mapPut(labelMap, buf, address);
         } else {
             address += BYTES_IN_WORD;
@@ -189,7 +187,8 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     return address;
 }
 
-uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory) {
+uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
+        uint8_t *memory) {
     map_t opcodeMap = initOpcodeMap();
     map_t condMap = initCondMap();
     map_t shiftMap = initShiftMap();
@@ -198,7 +197,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *
     uint32_t totalLength = programLength;
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if(!isLabel(buf)) {
+        if (!isLabel(buf)) {
             char **tokens = tokenizer(buf);
             //TODO
             free(tokens);
@@ -273,6 +272,10 @@ map_t initShiftMap(void) {
 
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * 10);
+    if (tokens == NULL) {
+        perror("tokenizer");
+        exit(EXIT_FAILURE);
+    }
     char copy[MAX_LINE_LENGTH];
     strcpy(copy, buf);
     char *token = strtok(buf, " ");
@@ -285,82 +288,53 @@ char **tokenizer(char *buf) {
     return tokens;
 }
 
-/*void functionMap(map_t *map) {
-    put(map, "add", &dataProcessing);
-    put(map, "sub", &dataProcessing);
-    put(map, "rsb", &dataProcessing);
-    put(map, "and", &dataProcessing);
-    put(map, "eor", &dataProcessing);
-    put(map, "orr", &dataProcessing);
-    put(map, "mov", &dataProcessing);
-    put(map, "tst", &dataProcessing);
-    put(map, "teq", &dataProcessing);
-    put(map, "cmp", &dataProcessing);
-    put(map, "andeq", &dataProcessing);
+void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
+        map_t *condMap) {
+    /*   uint32_t ins = 0;
 
-    put(map, "mul", &multiply);
-    put(map, "mla", &multiply);
+     //strcmp returns 0 if there's a match, 1 if no match
+     //0 is false, hence !0 indicates there's a match
+     //trying to work out what cond should be
+     uint32_t cond;
+     if (!strcmp(tokens[0], " beq")) {
+     cond = 0x0; //0000
+     } else if (!strcmp(tokens[0], " bne")) {
+     cond = 0x1; //0001
+     } else if (!strcmp(tokens[0], " bge")) {
+     cond = 0xa; //1010
+     } else if (!strcmp(tokens[0], " blt")) {
+     cond = 0xb; //1011
+     } else if (!strcmp(tokens[0], " bgt")) {
+     cond = 0xc; //1100
+     } else if (!strcmp(tokens[0], " ble")) {
+     cond = 0xd; //1101
+     } else {
+     //b or bal
+     cond = 0xe; //1110
+     }
 
-    put(map, "ldr", &sDataTrans);
-    put(map, "str", &sDataTrans);
+     //for bits 27-24
+     uint32_t constant = 0xa;
 
-    put(map, "beq", &branch);
-    put(map, "bne", &branch);
-    put(map, "bge", &branch);
-    put(map, "blt", &branch);
-    put(map, "bgt", &branch);
-    put(map, "ble", &branch);
-    put(map, "b", &branch);
-}*/
+     //calculate the offset
+     uint32_t offset = 0;
+     uint32_t next_addr = get(map, tokens[1]);
+     uint32_t curr_addr; //somehow get the current address
+     //TODO
+     //offset = next address - (current address + 8);
 
-void branch(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress) {
- /*   uint32_t ins = 0;
+     //set cond
+     ins = ins | cond << 28;
 
-    //strcmp returns 0 if there's a match, 1 if no match
-    //0 is false, hence !0 indicates there's a match
-    //trying to work out what cond should be
-    uint32_t cond;
-    if (!strcmp(tokens[0], " beq")) {
-        cond = 0x0; //0000
-    } else if (!strcmp(tokens[0], " bne")) {
-        cond = 0x1; //0001
-    } else if (!strcmp(tokens[0], " bge")) {
-        cond = 0xa; //1010
-    } else if (!strcmp(tokens[0], " blt")) {
-        cond = 0xb; //1011
-    } else if (!strcmp(tokens[0], " bgt")) {
-        cond = 0xc; //1100
-    } else if (!strcmp(tokens[0], " ble")) {
-        cond = 0xd; //1101
-    } else {
-        //b or bal
-        cond = 0xe; //1110
-    }
+     //set constant
+     ins = ins | constant << 24;
 
-    //for bits 27-24
-    uint32_t constant = 0xa;
-
-    //calculate the offset
-    uint32_t offset = 0;
-    uint32_t next_addr = get(map, tokens[1]);
-    uint32_t curr_addr; //somehow get the current address
-    //TODO
-    //offset = next address - (current address + 8);
-
-    //set cond
-    ins = ins | cond << 28;
-
-    //set constant
-    ins = ins | constant << 24;
-
-    //set offset
-    //ins = ins | offset;
-*/
+     //set offset
+     //ins = ins | offset;
+     */
 }
 
-void multiply(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress) {
+void multiply(char **tokens, uint8_t *memory, uint32_t address) {
     uint32_t ins = 0;
     if (!strcmp(tokens[0], "mla")) {
         //mla
@@ -382,8 +356,8 @@ void multiply(char **tokens, map_t *map, uint32_t curr_addr,
 }
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
-void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress) {
+void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
+        map_t *shiftMap, uint32_t totalLength) {
     uint32_t ins = 0;
 
     ins = setIndexing(tokens, ins);
@@ -397,7 +371,7 @@ void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         isLoad = 1;
     }
     // address as a numeric constant form
-    if(isLoad == 1) {
+    if (isLoad == 1) {
         //Immediate value expression
         if (tokens[2][0] == '=') {
             ins = setImmValue(ins, tokens);
@@ -514,8 +488,8 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
     return ins;
 }
 
-void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
-        uint8_t *memory, uint32_t constsAdress) {
+void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
+        map_t *opcodeMap, map_t *shiftMap) {
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
     uint32_t opcode = 0;
