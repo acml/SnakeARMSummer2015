@@ -7,8 +7,6 @@
 
 #define INT_BASE 10
 
-#define INT_BASE 10
-
 #define I_BIT 25
 #define S_BIT 20
 #define A_BIT 21
@@ -36,32 +34,38 @@
 
 #define MEMORY_SIZE 65536
 
-typedef struct linked_map {
+typedef struct map_elem {
     char *string;
-    void *value;
-    struct linked_map *next;
+    int integer;
+    struct map_elem *next;
+} map_e;
+
+typedef struct map {
+    map_e *head;
 } map_t;
 
-void put(map_t *root, char *string, void* value);
-void* get(map_t *root, char *string);
+map_e *mapAllocElem(void);
+void mapFreeElem(map_e *elem);
+void mapInit(map_t *m);
+void mapPut(map_t *m, char *string, int integer);
 
 char **tokens(char* str);
 uint32_t setBits(uint32_t ins, int value, int pos);
-uint32_t setBit(uint32_t ins, int pos);
+//uint32_t setBit(uint32_t ins, int pos);
 
-void branch(char **tokens, map_t *map, uint32_t curr_addr, 
+void branch(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
-void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
+void multiply(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
 
-void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr, 
+void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
-void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr, 
+void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
 uint32_t firstPass(FILE *fp, map_t *map);
 uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory);
 int isLabel(char *buf);
-void functionMap(map_t *map);
+//void functionMap(map_t *map);
 
 // single data transfer helper functions
 uint32_t setIndexing(char **tokens, uint32_t ins);
@@ -72,19 +76,52 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
 int main(void) {
     FILE *fp;
-    fp = fopen("emulate.c", "r"); 
+    fp = fopen("emulate.c", "r");
     map_t *funcMap = malloc(sizeof(map_t));
     map_t *labelsMap = malloc(sizeof(map_t));
     uint8_t *memory = malloc(MEMORY_SIZE);
     memset(memory, 0, MEMORY_SIZE);
     uint32_t size = firstPass(fp, labelsMap);
-    functionMap(funcMap);
+//    functionMap(funcMap);
     secondPass(fp, labelsMap, funcMap, size, memory);
     free(labelsMap);
     free(funcMap);
     fclose(fp);
 
     return 0;
+}
+
+map_e *mapAllocElem(void) {
+    map_e *elem = malloc(sizeof(map_e));
+    if (elem == NULL) {
+        perror("newListElem");
+        exit(EXIT_FAILURE);
+    }
+    return elem;
+}
+
+void mapFreeElem(map_e *elem) {
+    free(elem);
+}
+
+void mapInit(map_t *m) {
+    m->head = NULL;
+}
+
+void mapPut(map_t *m, char *string, int integer) {
+    map_e *elem = mapAllocElem();
+    elem->string = string;
+    elem->integer = integer;
+    elem->next = m->head;
+    m->head = elem;
+}
+
+int mapGet(map_t *m, char *string) {
+    map_e *elem = m->head;
+    while (strcmp(elem->string, string)) {
+        elem = elem->next;
+    }
+    return elem->integer;
 }
 
 int isLabel(char *buf) {
@@ -100,10 +137,10 @@ int isLabel(char *buf) {
 uint32_t firstPass(FILE *fp, map_t *map) {
     char buf[512];
     int address = 0;
-    
+
     while (fgets (buf, sizeof(buf), fp)) {
         if(isLabel(buf)) {
-            put(map, buf, &address);
+//            put(map, buf, &address);
         } else {
             address += 4;
         }
@@ -114,15 +151,15 @@ uint32_t firstPass(FILE *fp, map_t *map) {
 uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length, uint8_t *memory) {
     char buf[512];
     uint32_t address = 0;
-    uint32_t constsAddress = length;
+//    uint32_t constsAddress = length;
     while (fgets (buf, sizeof(buf), fp)) {
         if(!isLabel(buf)) {
-            char** tok = tokens(buf);
-            void *(*func)(char **tokens, map_t *map, uint32_t curr_addr, 
-        uint8_t *memory, uint32_t constsAdress) = get(funcMap, tok[0]);
-            func(tok, labelsMap, address, memory, constsAddress);
+//            char** tok = tokens(buf);
+//            void *(*func)(char **tokens, map_t *map, uint32_t curr_addr,
+//        uint8_t *memory, uint32_t constsAdress) = get(funcMap, tok[0]);
+//            func(tok, labelsMap, address, memory, constsAddress);
             address += 4;
-        } 
+        }
     }
 
     if (ferror(fp)) {
@@ -133,7 +170,7 @@ uint32_t secondPass(FILE *fp, map_t *labelsMap, map_t *funcMap, uint32_t length,
 }
 
 
-void functionMap(map_t *map) {
+/*void functionMap(map_t *map) {
     put(map, "add", &dataProcessing);
     put(map, "sub", &dataProcessing);
     put(map, "rsb", &dataProcessing);
@@ -159,31 +196,7 @@ void functionMap(map_t *map) {
     put(map, "bgt", &branch);
     put(map, "ble", &branch);
     put(map, "b", &branch);
-}
-
-void put(map_t *root, char *string, void *value) {
-    if (root == NULL) {
-        root = malloc(sizeof(map_t));
-        root->string = string;
-        root->value = value;
-        root->next = NULL;
-    }
-    while (root->next != NULL) {
-        root = root->next;
-    }
-    map_t *newMap = malloc(sizeof(map_t));
-    newMap->string = string;
-    newMap->value = value;
-    newMap->next = NULL;
-    root->next = newMap;
-}
-
-void* get(map_t *root, char *string) {
-    while (strcmp(root->string, string)) {
-        root = root->next;
-    }
-    return root->value;
-}
+}*/
 
 char** tokens(char* str) {
     const char *s = ", ";
@@ -205,7 +218,7 @@ uint32_t setBits(uint32_t ins, int value, int pos) {
     return ins | (value << pos);
 }
 
-void branch(char **tokens, map_t *map, uint32_t curr_addr, 
+void branch(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress) {
  /*   uint32_t ins = 0;
 
@@ -251,7 +264,7 @@ void branch(char **tokens, map_t *map, uint32_t curr_addr,
 */
 }
 
-void multiply(char **tokens, map_t *map, uint32_t curr_addr, 
+void multiply(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
     if (!strcmp(tokens[0], "mla")) {
@@ -274,19 +287,19 @@ void multiply(char **tokens, map_t *map, uint32_t curr_addr,
 }
 
 void binWriter(uint32_t ins, char *fileName) {
-	FILE *fp;
-	fp = fopen(fileName, "wb");
-	fwrite(&ins, 4, 1, fp);
-	fclose(fp);
+    FILE *fp;
+    fp = fopen(fileName, "wb");
+    fwrite(&ins, 4, 1, fp);
+    fclose(fp);
 }
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
-void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr, 
+void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
 
     ins = setIndexing(tokens, ins);
-    // set value of Rd 
+    // set value of Rd
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
     // set instruction type
@@ -306,7 +319,7 @@ void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         ins = setRnValue(tokens, ins);
         int rm = 0;
         int iBitValue = 0;
-        
+
         if (tokens[3] == NULL) {
             // set offset to 0
             ins = setBits(ins, 0, OFFSET_POS);
@@ -413,7 +426,7 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
     return ins;
 }
 
-void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr, 
+void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress) {
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
