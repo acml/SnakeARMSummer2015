@@ -68,6 +68,7 @@ int isLabel(char *buf);
 map_t initOpcodeMap(void);
 map_t initCondMap(void);
 map_t initShiftMap(void);
+map_t initRoutingMap(void);
 void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
 
 char **tokenizer(char *buf);
@@ -115,6 +116,8 @@ map_e *mapAllocElem(void) {
     }
     return elem;
 }
+
+
 
 void mapFreeElem(map_e *elem) {
     free(elem);
@@ -195,14 +198,29 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     map_t opcodeMap = initOpcodeMap();
     map_t condMap = initCondMap();
     map_t shiftMap = initShiftMap();
-
+    map_t routingMap = initRoutingMap();
     uint32_t address = 0;
     uint32_t totalLength = programLength;
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
             char **tokens = tokenizer(buf);
-            //TODO
+            int route = mapGet(&routingMap, tokens[0]);
+
+            //TODO add a fancy enum
+            switch(route) {
+            	case 0 : dataProcessing(tokens, memory, address, &opcodeMap, &shiftMap);
+            			 break;
+            	case 1 : multiply(tokens, memory, address);
+            			 break;
+            	case 2 : sDataTrans(tokens, memory, address, &shiftMap, totalLength);
+            			 break;
+            	case 3 : branch(tokens, memory, address, labelMap, &condMap);
+            			 break;
+            	default : printf("Unsupported opcode \n");
+            			  break;
+            }
+
             free(tokens);
             address += BYTES_IN_WORD;
         }
@@ -232,6 +250,42 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
 int isLabel(char *buf) {
     return buf[strlen(buf) - 1] == ':';
 }
+
+map_t initRoutingMap(void) {
+	map_t routingMap;
+	mapInit(&routingMap);
+    mapPut(&routingMap, "and", 0);
+    mapPut(&routingMap, "eor", 0);
+    mapPut(&routingMap, "sub", 0);
+    mapPut(&routingMap, "rsb", 0);
+    mapPut(&routingMap, "add", 0);
+    mapPut(&routingMap, "orr", 0);
+    mapPut(&routingMap, "mov", 0);
+    mapPut(&routingMap, "tst", 0);
+    mapPut(&routingMap, "teq", 0);
+    mapPut(&routingMap, "cmp", 0);
+
+    mapPut(&routingMap, "mul", 1);
+    mapPut(&routingMap, "mla", 1);
+
+    mapPut(&routingMap, "ldr", 2);
+    mapPut(&routingMap, "str", 2);
+
+    mapPut(&routingMap, "b", 3);
+    mapPut(&routingMap, "ble", 3);
+    mapPut(&routingMap, "bgt", 3);
+    mapPut(&routingMap, "blt", 3);
+    mapPut(&routingMap, "bge", 3);
+    mapPut(&routingMap, "bne", 3);
+    mapPut(&routingMap, "beq", 3);
+
+    //lsl not necessary
+    mapPut(&routingMap, "andeq", 0);
+
+    return routingMap;
+
+}
+
 
 map_t initOpcodeMap(void) {
     map_t opcodeMap;
