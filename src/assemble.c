@@ -179,6 +179,7 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (isLabel(buf)) {
+            buf[strlen(buf) - 1] = '\0';
             mapPut(labelMap, buf, address);
         } else {
             address += BYTES_IN_WORD;
