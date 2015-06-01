@@ -50,19 +50,24 @@ typedef struct map {
 map_e *mapAllocElem(void);
 void mapFreeElem(map_e *elem);
 void mapInit(map_t *m);
+void mapDestroy(map_t *m);
 void mapPut(map_t *m, char *string, int integer);
+int mapGet(map_t *m, char *string);
+
+uint32_t setBit(uint32_t ins, int pos);
+uint32_t setBits(uint32_t ins, uint32_t val, int pos);
 
 uint32_t assembly(char **argv, uint8_t *memory);
 uint32_t firstPass(FILE *fp, map_t *labelMap);
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory);
+void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength);
 
+int isLabel(char *buf);
 map_t initOpcodeMap(void);
 map_t initCondMap(void);
 map_t initShiftMap(void);
 
 char **tokens(char* str);
-uint32_t setBits(uint32_t ins, int value, int pos);
-//uint32_t setBit(uint32_t ins, int pos);
 
 void branch(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
@@ -73,7 +78,6 @@ void dataProcessing(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
 void sDataTrans(char **tokens, map_t *map, uint32_t curr_addr,
         uint8_t *memory, uint32_t constsAdress);
-int isLabel(char *buf);
 //void functionMap(map_t *map);
 
 // single data transfer helper functions
@@ -96,8 +100,10 @@ int main(int argc, char **argv) {
     }
     memset(memory, 0, MEMORY_SIZE);
 
-//    functionMap(funcMap);
+    uint32_t totalLength = assembly(argv, memory);
+    writeBinary(argv, memory, totalLength);
 
+    free(memory);
     return 0;
 }
 
@@ -118,6 +124,15 @@ void mapInit(map_t *m) {
     m->head = NULL;
 }
 
+void mapDestroy(map_t *m) {
+    map_e *elem = m->head;
+    while (elem != NULL) {
+        map_e *next = elem->next;
+        mapFreeElem(elem);
+        elem = next;
+    }
+}
+
 void mapPut(map_t *m, char *string, int integer) {
     map_e *elem = mapAllocElem();
     elem->string = string;
@@ -134,6 +149,14 @@ int mapGet(map_t *m, char *string) {
     return elem->integer;
 }
 
+uint32_t setBit(uint32_t ins, int pos) {
+    return ins | (1 << pos);
+}
+
+uint32_t setBits(uint32_t ins, uint32_t val, int pos) {
+    return ins | (val << pos);
+}
+
 uint32_t assembly(char **argv, uint8_t *memory) {
     FILE *fp = fopen(argv[1], "r");
     if (fp == NULL) {
@@ -146,6 +169,8 @@ uint32_t assembly(char **argv, uint8_t *memory) {
 
     uint32_t programLength = firstPass(fp, &labelMap);
     uint32_t totalLength = secondPass(fp, &labelMap, programLength, memory);
+
+    mapDestroy(&labelMap);
 
     fclose(fp);
     return totalLength;
@@ -164,50 +189,6 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     return address;
 }
 
-int isLabel(char *buf) {
-    return buf[strlen(buf) - 1] == ':';
-}
-
-map_t initOpcodeMap(void) {
-    map_t opcodeMap;
-    mapInit(opcodeMap);
-    mapPut(opcodeMap, "and", 0x0);
-    mapPut(opcodeMap, "eor", 0x1);
-    mapPut(opcodeMap, "sub", 0x2);
-    mapPut(opcodeMap, "rsb", 0x3);
-    mapPut(opcodeMap, "add", 0x4);
-    mapPut(opcodeMap, "orr", 0xc);
-    mapPut(opcodeMap, "mov", 0xd);
-    mapPut(opcodeMap, "tst", 0x8);
-    mapPut(opcodeMap, "teq", 0x9);
-    mapPut(opcodeMap, "cmp", 0xa);
-    return opcodeMap;
-}
-
-map_t initCondMap(void) {
-    map_t condMap;
-    mapInit(condMap);
-    mapPut(condMap, "eq", 0x0);
-    mapPut(condMap, "ne", 0x1);
-    mapPut(condMap, "ge", 0xa);
-    mapPut(condMap, "lt", 0xb);
-    mapPut(condMap, "gt", 0xc);
-    mapPut(condMap, "le", 0xd);
-    mapPut(condMap, "al", 0xe);
-    mapPut(condMap, "", 0xe);
-    return condMap;
-}
-
-map_t initShiftMap(void) {
-    map_t shiftMap;
-    mapInit(shiftMap);
-    mapPut(shiftMap, "lsl", 0x0);
-    mapPut(shiftMap, "lsr", 0x1);
-    mapPut(shiftMap, "asr", 0x2);
-    mapPut(shiftMap, "ror", 0x3);
-    return shiftMap;
-}
-
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *memory) {
     map_t opcodeMap = initOpcodeMap();
     map_t condMap = initCondMap();
@@ -222,9 +203,71 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength, uint8_t *
             address += BYTES_IN_WORD;
         }
     }
+
+    mapDestroy(&opcodeMap);
+    mapDestroy(&condMap);
+    mapDestroy(&shiftMap);
+
     return totalLength;
 }
 
+void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
+    FILE *fp = fopen(argv[2], "wb");
+    if (fp == NULL) {
+        printf("Could not open output file.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < totalLength; i++) {
+        fwrite(&memory[i], sizeof(uint8_t), 1, fp);
+    }
+
+    fclose(fp);
+}
+
+int isLabel(char *buf) {
+    return buf[strlen(buf) - 1] == ':';
+}
+
+map_t initOpcodeMap(void) {
+    map_t opcodeMap;
+    mapInit(&opcodeMap);
+    mapPut(&opcodeMap, "and", 0x0);
+    mapPut(&opcodeMap, "eor", 0x1);
+    mapPut(&opcodeMap, "sub", 0x2);
+    mapPut(&opcodeMap, "rsb", 0x3);
+    mapPut(&opcodeMap, "add", 0x4);
+    mapPut(&opcodeMap, "orr", 0xc);
+    mapPut(&opcodeMap, "mov", 0xd);
+    mapPut(&opcodeMap, "tst", 0x8);
+    mapPut(&opcodeMap, "teq", 0x9);
+    mapPut(&opcodeMap, "cmp", 0xa);
+    return opcodeMap;
+}
+
+map_t initCondMap(void) {
+    map_t condMap;
+    mapInit(&condMap);
+    mapPut(&condMap, "eq", 0x0);
+    mapPut(&condMap, "ne", 0x1);
+    mapPut(&condMap, "ge", 0xa);
+    mapPut(&condMap, "lt", 0xb);
+    mapPut(&condMap, "gt", 0xc);
+    mapPut(&condMap, "le", 0xd);
+    mapPut(&condMap, "al", 0xe);
+    mapPut(&condMap, "", 0xe);
+    return condMap;
+}
+
+map_t initShiftMap(void) {
+    map_t shiftMap;
+    mapInit(&shiftMap);
+    mapPut(&shiftMap, "lsl", 0x0);
+    mapPut(&shiftMap, "lsr", 0x1);
+    mapPut(&shiftMap, "asr", 0x2);
+    mapPut(&shiftMap, "ror", 0x3);
+    return shiftMap;
+}
 
 /*void functionMap(map_t *map) {
     put(map, "add", &dataProcessing);
@@ -268,10 +311,6 @@ char** tokens(char* str) {
     }
     tokArrPtr[i] = NULL;
     return tokArrPtr;
-}
-
-uint32_t setBits(uint32_t ins, int value, int pos) {
-    return ins | (value << pos);
 }
 
 void branch(char **tokens, map_t *map, uint32_t curr_addr,
@@ -340,13 +379,6 @@ void multiply(char **tokens, map_t *map, uint32_t curr_addr,
     int constField = 9;
     ins = ins | constField << MULTIPLY_CONST;
 
-}
-
-void binWriter(uint32_t ins, char *fileName) {
-    FILE *fp;
-    fp = fopen(fileName, "wb");
-    fwrite(&ins, 4, 1, fp);
-    fclose(fp);
 }
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
