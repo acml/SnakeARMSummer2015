@@ -566,6 +566,22 @@ void multiply(state_t *state) {
     }
 }
 
+int checkPinAddresses(uint32_t address) {
+    if(address == 0x20200000) {
+        printf("One GPIO pin from 0 to 9 has been accessed\n");
+        return 1;
+    } 
+    if (address == 0x20200004) {
+        printf("One GPIO pin from 10 to 19 has been accessed\n");
+        return 1;
+    } 
+    if (address = 0x20200008) {
+        printf("One GPIO pin from 20 to 29 has been accessed\n");
+        return 1;
+    }
+    return 0;
+}
+
 // Transfers data depending in the conditions
 void singleDataTransfer(state_t *state) {
     decoded_t *decoded = state->decoded;
@@ -589,8 +605,14 @@ void singleDataTransfer(state_t *state) {
     }
 
     if (address > MEMORY_SIZE) {
-        printf("Error: Out of bounds memory access at address 0x%08x\n",
-                address);
+        if(address == 0x20200028) {
+            printf("PIN OFF");
+        } else if(address == 0x2020001C) {
+            printf("PIN ON");
+        } else if (!checkPinAddresses(address)) {
+            printf("Error: Out of bounds memory access at address 0x%08x\n",
+                address);   
+        }
         return;
     }
 
@@ -607,7 +629,10 @@ void singleDataTransfer(state_t *state) {
         }
         state->registers[decoded->rn] = address;
     }
+
 }
+
+
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
