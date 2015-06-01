@@ -4,6 +4,8 @@
 #include <err.h>
 #include <string.h>
 #include <assert.h>
+#include <endian.h>
+
 
 #define MAX_LINE_LENGTH 512
 #define BYTES_IN_WORD 4
@@ -77,18 +79,19 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap);
 void multiply(char **tokens, uint8_t *memory, uint32_t address);
 void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *shiftMap, uint32_t totalLength);
+        map_t *shiftMap, uint32_t *endProgramPtr);
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap);
 
 // single data transfer helper functions
 uint32_t setIndexing(char **tokens, uint32_t ins);
-uint32_t setImmValue(uint32_t ins, char **tokens);
+uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr, uint8_t *memory, uint32_t address);
 uint32_t setRnValue(char **tokens, uint32_t ins);
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
 int main(int argc, char **argv) {
+	printf("test");
     if (argc < 3) {
         printf("Input file and/or output file not specified.\n");
         exit(EXIT_FAILURE);
@@ -171,6 +174,9 @@ uint32_t assembly(char **argv, uint8_t *memory) {
     mapInit(&labelMap);
 
     uint32_t programLength = firstPass(fp, &labelMap);
+    fclose(fp);
+    fp = fopen(argv[1], "r"); //TODO HACKY FIND BETTER WAY
+
     uint32_t totalLength = secondPass(fp, &labelMap, programLength, memory);
 
     mapDestroy(&labelMap);
@@ -200,11 +206,12 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     map_t shiftMap = initShiftMap();
     map_t routingMap = initRoutingMap();
     uint32_t address = 0;
-    uint32_t totalLength = programLength;
+
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
             char **tokens = tokenizer(buf);
+
             int route = mapGet(&routingMap, tokens[0]);
 
             //TODO add a fancy enum
@@ -213,7 +220,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
             			 break;
             	case 1 : multiply(tokens, memory, address);
             			 break;
-            	case 2 : sDataTrans(tokens, memory, address, &shiftMap, totalLength);
+            	case 2 : sDataTrans(tokens, memory, address, &shiftMap, &programLength);
             			 break;
             	case 3 : branch(tokens, memory, address, labelMap, &condMap);
             			 break;
@@ -230,7 +237,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     mapDestroy(&condMap);
     mapDestroy(&shiftMap);
 
-    return totalLength;
+    return programLength;
 }
 
 void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
@@ -396,6 +403,7 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
      //set offset
      //ins = ins | offset;
      */
+	//storeWord(memory, address, ins);
 }
 
 void multiply(char **tokens, uint8_t *memory, uint32_t address) {
@@ -416,72 +424,81 @@ void multiply(char **tokens, uint8_t *memory, uint32_t address) {
     ins = ins | cond << COND_POS;
     int constField = 9;
     ins = ins | constField << MULTIPLY_CONST;
+    storeWord(memory, address, ins);
 
 }
 
 //uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
 void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *shiftMap, uint32_t totalLength) {
+        map_t *shiftMap, uint32_t *endProgramPtr) {
     uint32_t ins = 0;
 
+    //Set post/pre Indexing bit
     ins = setIndexing(tokens, ins);
+
     // set value of Rd
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
+    ins = setBits(ins, 0x1, 26); //TODO make in const
     // set instruction type
     int isLoad = 0;
     if (!strcmp(tokens[0], "ldr")) {
-        ins = setBits(ins, 1, L_BIT);
+    	ins = setBits(ins, 1, L_BIT);
         isLoad = 1;
     }
+
     // address as a numeric constant form
     if (isLoad == 1) {
         //Immediate value expression
         if (tokens[2][0] == '=') {
-            ins = setImmValue(ins, tokens);
+            ins = setImmValue(ins, tokens, endProgramPtr, memory, address);
         }
-    } else {
-        int setU = 0;
-        ins = setRnValue(tokens, ins);
-        int rm = 0;
-        int iBitValue = 0;
-
-        if (tokens[3] == NULL) {
-            // set offset to 0
-            ins = setBits(ins, 0, OFFSET_POS);
-        } else if (tokens[3][0] == '#') {
-            // set offset to value of expression
-            int expValue = strtol(tokens[3] + 1, NULL, 0);
-            ins = setBits(ins, expValue, OFFSET_POS);
-            if (expValue < 0) {
-                setU = 1;
-            }
-        } else {
-            // if offset of base register is represented by a register
-            if (tokens[3][0] == 'r') {
-                rm = strtol(tokens[3] + 1, NULL, 0);
-            } else {
-                rm = strtol(tokens[3] + 2, NULL, 0);
-            }
-            if (tokens[3][0] != '-') {
-                setU = 1;
-            }
-            // shift cases
-            if (tokens[4] != NULL) {
-                char *from = tokens[4];
-                char *shiftType = strndup(from, 3); // takes first 3 chars from token line
-                char *shiftValue = strdup(from + 4); // takes chars from position 4
-                ins = setShiftType(ins, shiftType);
-                ins = setShiftValue(ins, shiftValue);
-            }
-            iBitValue = 1;
-        }
-        ins = setBits(ins, 0xe, COND_POS);
-        ins = setBits(ins, iBitValue, I_BIT);
-        ins = setBits(ins, setU, U_BIT);
-        ins = setBits(ins, rm, RM_POS);
-        ins = setBits(ins, 0, 5);
     }
+
+	int setU = 1;
+	ins = setRnValue(tokens, ins);
+	int rm = 0;
+	int iBitValue = 0;
+
+	if (tokens[3] == NULL) {
+		// set offset to 0
+		ins = setBits(ins, 0, OFFSET_POS);
+	} else if (tokens[3][0] == '#') {
+		// set offset to value of expression
+		int expValue = strtol(tokens[3] + 1, NULL, 0);
+		ins = setBits(ins, expValue, OFFSET_POS);
+		if (expValue < 0) {
+			setU = 0;
+		}
+	} else {
+		// if offset of base register is represented by a register
+		if (tokens[3][0] == 'r') {
+			rm = strtol(tokens[3] + 1, NULL, 0);
+		} else {
+			rm = strtol(tokens[3] + 2, NULL, 0);
+		}
+		if (tokens[3][0] != '-') {
+			setU = 1;
+		}
+		// shift cases
+		if (tokens[4] != NULL) {
+			char *from = tokens[4];
+			char *shiftType = strndup(from, 3); // takes first 3 chars from token line
+			char *shiftValue = strdup(from + 4); // takes chars from position 4
+			ins = setShiftType(ins, shiftType);
+			ins = setShiftValue(ins, shiftValue);
+		}
+		iBitValue = 1;
+
+	}
+
+	ins = setBits(ins, 0xe, COND_POS);
+	ins = setBits(ins, iBitValue, I_BIT);
+	ins = setBits(ins, setU, U_BIT);
+	ins = setBits(ins, rm, RM_POS);
+	ins = setBits(ins, 0, 5);
+	storeWord(memory, address, ins);
+
 }
 
 uint32_t setIndexing(char **tokens, uint32_t ins) {
@@ -500,26 +517,40 @@ uint32_t setIndexing(char **tokens, uint32_t ins) {
     return ins;
 }
 
-uint32_t setImmValue(uint32_t ins, char **tokens) {
-    int immValue = strtol(tokens[2] + 1, NULL, 0);
+uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr, uint8_t *memory, uint32_t address) {
+
+    uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
     if (immValue <= 0xff) {
         ins = setBits(ins, 1, I_BIT);
         ins = setBits(ins, 0xd, OPCODE_POS);
         ins = setBits(ins, immValue, OFFSET_POS);
+        ins = ins & 0xfbefffff; //Unset LBIT and bit 26
         return ins;
     } else {
-        //TODO save constants after program terminates
-        return 0;
+        storeWord(memory, *endProgramPtr, immValue);
+
+        //TODO quite hacky, maybe rewrite
+        //Alter tokens so it works
+        tokens[2] = "[r15]";
+        int offset = *endProgramPtr - address - 8;
+        char stringOffset[50]; //TODO find how big this needs to be
+        sprintf(stringOffset, "%d", offset);
+        char* buf = (char*) malloc(sizeof(char) * 51);
+
+		strcat(buf, "#");
+		strcat(buf, stringOffset);
+        *endProgramPtr += 4;
+        tokens[3] = buf;
+        return ins;
     }
 }
 
 uint32_t setRnValue(char **tokens, uint32_t ins) {
     int rn = 0;
-    if ((!strcmp(tokens[3], "r15"))) {
-        rn = 15;
-    } else {
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    }
+
+
+    rn = strtol(tokens[2] + 2, NULL, 0);
+
     ins = setBits(ins, rn, RN_POS);
     return ins;
 }
@@ -604,6 +635,9 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         rn = strtol(tokens[1] + 1, NULL, 0);
         isS = 1;
         op2 = 2;
+    } else if (!strcmp(tokens[0], "andeq")) {
+    	storeWord(memory, address, 0x00000000);
+    	return;
     }
     ins |= opcode << OPCODE_POS;
     ins |= rd << RD_POS;
@@ -617,13 +651,16 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
             if (immValue <= 0xFF) {
                 isRepresentable = 1;
             } else {
-                immValue = (immValue >> 2) | (immValue << 30);
+            	//Note for Yifan - I have changed the ror here to rol
+                immValue = (immValue << 2) | (immValue >> 30);
                 shiftValue += 2;
+
             }
         }
         if (!isRepresentable) {
             printf("Error: not representable");
         } else {
+        	ins = setBits(ins, 0x1, I_BIT);
             ins |= immValue;
             ins |= (shiftValue / 2) << IMM_ROTATE_POS;
         }
@@ -631,22 +668,27 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
         uint32_t shift = 0;
-        if (!strcmp(tokens[op2 + 1], "lsl")) {
-            shift = 0;
-        } else if (!strcmp(tokens[op2 + 1], "lsr")) {
-            shift = 1;
-        } else if (!strcmp(tokens[op2 + 1], "asr")) {
-            shift = 2;
-        } else if (!strcmp(tokens[op2 + 1], "ror")) {
-            shift = 3;
-        }
-        ins |= shift << SHIFT_TYPE_POS;
-        if (tokens[op2 + 2][0] == '#') {
-            uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
-            ins |= shiftValue << SHIFT_VALUE_POS;
-        } else {
-            uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
-            ins |= rs << RS_POS;
+        if(tokens[op2 + 1] != NULL) {
+			if (!strcmp(tokens[op2 + 1], "lsl")) {
+				shift = 0;
+			} else if (!strcmp(tokens[op2 + 1], "lsr")) {
+				shift = 1;
+			} else if (!strcmp(tokens[op2 + 1], "asr")) {
+				shift = 2;
+			} else if (!strcmp(tokens[op2 + 1], "ror")) {
+				shift = 3;
+			}
+			ins |= shift << SHIFT_TYPE_POS;
+			if (tokens[op2 + 2][0] == '#') {
+				uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
+				ins |= shiftValue << SHIFT_VALUE_POS;
+			} else {
+				uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
+				ins |= rs << RS_POS;
+			}
         }
     }
+    storeWord(memory, address, ins);
 }
+
+
