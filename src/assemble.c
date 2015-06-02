@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <endian.h>
 
-
 #define MAX_LINE_LENGTH 512
 #define BYTES_IN_WORD 4
 #define BITS_IN_BYTE 8
@@ -85,7 +84,8 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
 
 // single data transfer helper functions
 uint32_t setIndexing(char **tokens, uint32_t ins);
-uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr, uint8_t *memory, uint32_t address);
+uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
+        uint8_t *memory, uint32_t address);
 uint32_t setRnValue(char **tokens, uint32_t ins);
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
@@ -119,8 +119,6 @@ map_e *mapAllocElem(void) {
     }
     return elem;
 }
-
-
 
 void mapFreeElem(map_e *elem) {
     free(elem);
@@ -194,7 +192,7 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
             buf[strlen(buf) - 2] = '\0';
             mapPut(labelMap, buf, address);
         } else {
-            if(strcmp("",buf) && strcmp("\n", buf)) {
+            if (strcmp("", buf) && strcmp("\n", buf)) {
                 address += BYTES_IN_WORD;
             }
 
@@ -211,13 +209,12 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     map_t routingMap = initRoutingMap();
     uint32_t address = 0;
 
-
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
 
             char **tokens = tokenizer(buf);
-            if(tokens[0] == NULL) {
+            if (tokens[0] == NULL) {
                 free(tokens);
 
                 continue;
@@ -225,17 +222,24 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
             int route = mapGet(&routingMap, tokens[0]);
 
             //TODO add a fancy enum
-            switch(route) {
-                case 0 : dataProcessing(tokens, memory, address, &opcodeMap, &shiftMap);
-                         break;
-                case 1 : multiply(tokens, memory, address);
-                         break;
-                case 2 : sDataTrans(tokens, memory, address, &shiftMap, &programLength);
-                         break;
-                case 3 : branch(tokens, memory, address, labelMap, &condMap);
-                         break;
-                default : printf("Unsupported opcode \n");
-                          break;
+            switch (route) {
+                case 0:
+                    dataProcessing(tokens, memory, address, &opcodeMap,
+                            &shiftMap);
+                    break;
+                case 1:
+                    multiply(tokens, memory, address);
+                    break;
+                case 2:
+                    sDataTrans(tokens, memory, address, &shiftMap,
+                            &programLength);
+                    break;
+                case 3:
+                    branch(tokens, memory, address, labelMap, &condMap);
+                    break;
+                default:
+                    printf("Unsupported opcode \n");
+                    break;
             }
 
             free(tokens);
@@ -303,7 +307,6 @@ map_t initRoutingMap(void) {
 
 }
 
-
 map_t initOpcodeMap(void) {
     map_t opcodeMap;
     mapInit(&opcodeMap);
@@ -353,7 +356,7 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
 
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * 10);
-    memset(tokens, 0, sizeof(char *) * 10 );
+    memset(tokens, 0, sizeof(char *) * 10);
     if (tokens == NULL) {
         perror("tokenizer");
         exit(EXIT_FAILURE);
@@ -372,38 +375,37 @@ char **tokenizer(char *buf) {
 
 void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap) {
-     uint32_t ins = 0;
+    uint32_t ins = 0;
 
-     //strcmp returns 0 if there's a match, 1 if no match
-     //0 is false, hence !0 indicates there's a match
-     //trying to work out what cond should be
-     char *condStr = tokens[0];
-     condStr += 1;
-     uint32_t cond = mapGet(condMap, condStr);
+    //strcmp returns 0 if there's a match, 1 if no match
+    //0 is false, hence !0 indicates there's a match
+    //trying to work out what cond should be
+    char *condStr = tokens[0];
+    condStr += 1;
+    uint32_t cond = mapGet(condMap, condStr);
 
-     //for bits 27-24
-     uint32_t constant = 0xa;
+    //for bits 27-24
+    uint32_t constant = 0xa;
 
-     //calculate the offset
-     uint32_t next_addr = mapGet(labelMap, tokens[1]);
-     int32_t offset = next_addr - (address + 8);
+    //calculate the offset
+    uint32_t next_addr = mapGet(labelMap, tokens[1]);
+    int32_t offset = next_addr - (address + 8);
 
-     offset >>= 2;
+    offset >>= 2;
 
+    //set cond
+    ins = ins | cond << 28;
 
-     //set cond
-     ins = ins | cond << 28;
+    //set constant
+    ins = ins | constant << 24;
 
-     //set constant
-     ins = ins | constant << 24;
+    //set offset
+    //TODO check if offset is representable
+    offset &= 0xffffff; // make offset 24bit
 
-     //set offset
-     //TODO check if offset is representable
-     offset &= 0xffffff; // make offset 24bit
+    ins = ins | offset;
 
-     ins = ins | offset;
-
-     storeWord(memory, address, ins);
+    storeWord(memory, address, ins);
 }
 
 void multiply(char **tokens, uint8_t *memory, uint32_t address) {
@@ -486,7 +488,9 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
         // shift cases
         if (tokens[4] != NULL) {
             char *from = tokens[4];
-            char *shiftType = strndup(from, 3); // takes first 3 chars from token line
+            char shiftType[4];
+            strncpy(shiftType, from, 3); // takes first 3 chars from token line
+            shiftType[4] = '\0';
             char *shiftValue = strdup(from + 4); // takes chars from position 4
             ins = setShiftType(ins, shiftType);
             ins = setShiftValue(ins, shiftValue);
@@ -520,7 +524,8 @@ uint32_t setIndexing(char **tokens, uint32_t ins) {
     return ins;
 }
 
-uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr, uint8_t *memory, uint32_t address) {
+uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
+        uint8_t *memory, uint32_t address) {
 
     uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
     if (immValue <= 0xff) {
@@ -550,7 +555,6 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr, uint8
 
 uint32_t setRnValue(char **tokens, uint32_t ins) {
     int rn = 0;
-
 
     rn = strtol(tokens[2] + 2, NULL, 0);
 
@@ -589,10 +593,10 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap) {
     if (!strcmp(tokens[0], "lsl")) {
-            tokens[3] = tokens[0];
-            tokens[4] = tokens[2];
-            tokens[0] = "mov";
-            tokens[2] = tokens[1];
+        tokens[3] = tokens[0];
+        tokens[4] = tokens[2];
+        tokens[0] = "mov";
+        tokens[2] = tokens[1];
     }
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
@@ -680,7 +684,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
         uint32_t shift = 0;
-        if(tokens[op2 + 1] != NULL) {
+        if (tokens[op2 + 1] != NULL) {
             if (!strcmp(tokens[op2 + 1], "lsl")) {
                 shift = 0;
             } else if (!strcmp(tokens[op2 + 1], "lsr")) {
