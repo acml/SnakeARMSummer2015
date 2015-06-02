@@ -400,7 +400,6 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
     ins = ins | constant << 24;
 
     //set offset
-    //TODO check if offset is representable
     offset &= 0xffffff; // make offset 24bit
 
     ins = ins | offset;
