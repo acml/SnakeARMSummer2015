@@ -148,6 +148,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    delState(state);
     return EXIT_SUCCESS;
 }
 
@@ -570,7 +571,7 @@ int checkPinAddresses(uint32_t address) {
 	if(address == 0x20200028) {
 	    printf("PIN OFF\n");
 	    return 1;
-    } 
+    }
     if(address == 0x2020001C) {
         printf("PIN ON\n");
         return 1;
@@ -579,11 +580,11 @@ int checkPinAddresses(uint32_t address) {
 
         printf("One GPIO pin from 0 to 9 has been accessed\n");
         return 1;
-    } 
+    }
     if (address == 0x20200004) {
         printf("One GPIO pin from 10 to 19 has been accessed\n");
         return 1;
-    } 
+    }
     if (address == 0x20200008) {
         printf("One GPIO pin from 20 to 29 has been accessed\n");
         return 1;
@@ -620,7 +621,7 @@ void singleDataTransfer(state_t *state) {
 			}
 		} else {
             printf("Error: Out of bounds memory access at address 0x%08x\n",
-                address);   
+                address);
         }
         return;
     }
@@ -640,8 +641,6 @@ void singleDataTransfer(state_t *state) {
     }
 
 }
-
-
 
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
