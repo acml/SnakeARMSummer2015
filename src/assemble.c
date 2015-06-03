@@ -183,6 +183,10 @@ void mapDestroy(map_t *m) {
     }
 }
 
+/*
+ * Function creates new element with given int value and string representation
+ * and insert new element to the head of the map structure
+ */
 void mapPut(map_t *m, char *string, int integer) {
     map_e *elem = mapAllocElem();
     elem->string = malloc(strlen(string) * sizeof(char)); //TODO free this
@@ -192,6 +196,9 @@ void mapPut(map_t *m, char *string, int integer) {
     m->head = elem;
 }
 
+/*
+ * Function returns the value in the map structure related with input string
+ */
 int mapGet(map_t *m, char *string) {
     map_e *elem = m->head;
     while (strcmp(elem->string, string)) {
@@ -274,7 +281,7 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
         uint8_t *memory) {
     /*
-     * Initialization of map_t structure
+     * Initialization of map_t structures
      */
     map_t opcodeMap = initOpcodeMap();
     map_t condMap = initCondMap();
@@ -331,6 +338,9 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     return programLength;
 }
 
+/*
+ * 
+ */
 void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
     FILE *fp = fopen(argv[2], "wb");
     if (fp == NULL) {
@@ -464,9 +474,13 @@ char **tokenizer(char *buf) {
     char *token = strtok(buf, " \n");
     int i = 0;
     while (token != NULL) {
+        if (token[0] == ';') {
+            return tokens;
+        }
         tokens[i] = token;
         token = strtok(NULL, " ,\n");
         i++;
+
     }
     return tokens;
 }
