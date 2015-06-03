@@ -10,8 +10,11 @@
  */
 int main(int argc, char **argv) {
     state_t *state = newState();
+	
     if (state == NULL) {
+
         return EXIT_FAILURE;
+
     }
 
     if (!readBinary(state, argc, argv)) {
@@ -26,8 +29,9 @@ int main(int argc, char **argv) {
             incPC(state);
         }
     }
-
+	
     if (!outputState(state)) {
+		
         return EXIT_FAILURE;
     }
 
