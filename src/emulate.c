@@ -125,6 +125,7 @@ void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
 
+//entry point of emulator
 int main(int argc, char **argv) {
     state_t *state = newState();
     if (state == NULL) {
@@ -152,6 +153,7 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
+//
 state_t *newState(void) {
     state_t *state = malloc(sizeof(state_t));
     if (state == NULL) {
@@ -191,9 +193,18 @@ state_t *newState(void) {
 
 void delState(state_t *state) {
     if (state != NULL) {
-        free(state->decoded);
-        free(state->registers);
-        free(state->memory);
+        if (state->decoded != NULL) {
+            free(state->decoded);
+        }
+        
+        if (state->registers != NULL) {
+            free(state->registers);
+        }
+        
+        if (state->memory != NULL) {
+            free(state->memory);
+        }
+        
         free(state);
     }
 }
