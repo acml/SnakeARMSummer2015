@@ -75,13 +75,13 @@ void delState(state_t *state) {
 int readBinary(state_t *state, int argc, char **argv) {
     if (argc == 1) {
         printf("No input file specified.\n");
-        return EXIT_FAILURE;
+        return 0;
     }
 
     FILE *fp = fopen(argv[1], "rb");
     if (fp == NULL) {
         printf("Could not open input file.\n");
-        return EXIT_FAILURE;
+        return 0;
     }
 
     uint8_t *buffer = malloc(sizeof(uint8_t));
@@ -93,7 +93,7 @@ int readBinary(state_t *state, int argc, char **argv) {
     free(buffer);
 
     fclose(fp);
-    return EXIT_SUCCESS;
+    return 1;
 }
 
 /*
@@ -120,7 +120,7 @@ int outputState(state_t *state) {
         }
     }
 
-    return EXIT_SUCCESS;
+    return 1;
 }
 
 /* 
