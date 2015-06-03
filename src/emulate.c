@@ -114,7 +114,7 @@ uint32_t maskBits(uint32_t data, int upper, int lower);
 uint32_t getFLag(state_t *state, int flag);
 void setFlag(state_t *state, int val, int flag);
 
-ins_t insTpye(uint32_t ins);
+ins_t insType(uint32_t ins);
 int checkCond(state_t *state);
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue);
 int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
@@ -311,7 +311,7 @@ void decode(state_t *state) {
     memset(decoded, 0, sizeof(decoded_t));
     uint32_t instruction = state->fetched;
 
-    decoded->ins = insTpye(instruction);
+    decoded->ins = insType(instruction);
 
     decoded->isRegShiftValue = maskBits(instruction, 4, 4);
     decoded->isI = maskBits(instruction, I_BIT, I_BIT);
@@ -356,34 +356,58 @@ void decode(state_t *state) {
     state->isDecoded = 1;
 }
 
+
+/*
+ * Returns the instruction at address stored in PC and casts it to 32bit int.
+ * Also changes the state of pipeline so it know that instruction is fetched.
+ * 
+ */
 void fetch(state_t *state) {
     state->fetched = ((uint32_t *) state->memory)[state->registers[PC_REG]
             / BYTES_IN_WORD];
     state->isFetched = 1;
 }
 
+/*
+ * Increments the PC by number of bytes in word (moves PC to next address).
+ */ 
 void incPC(state_t *state) {
     state->registers[PC_REG] += BYTES_IN_WORD;
 }
 
-uint32_t maskBits(uint32_t data, int upper, int lower) {
+/*
+ * Returns the value in data between and upper and lower bit(both included).
+ * Because it is a short function called often, we have decided to inline it
+ * to improve performance.
+ */
+inline uint32_t maskBits(uint32_t data, int upper, int lower) {
     assert(upper >= lower && upper <= 31 && lower >= 0);
     data <<= TOP_BIT - upper;
     data >>= TOP_BIT - (upper - lower);
     return data;
 }
 
+/*
+ * Returns the given flag from CPSR_REG
+ */
 uint32_t getFLag(state_t *state, int flag) {
     return maskBits(state->registers[CPSR_REG], flag, flag);
 }
 
+/*
+ * Sets or clears(according to val) given flag in CPSR_REG. 
+ */
 void setFlag(state_t *state, int val, int flag) {
     assert(val == 0 || val == 1);
     state->registers[CPSR_REG] ^= (-val ^ state->registers[CPSR_REG])
             & (1 << flag);
 }
 
-ins_t insTpye(uint32_t ins) {
+
+/*
+ * Returns the type of the instruction being decoded.
+ */
+ins_t insType(uint32_t ins) {
     if (ins == 0) {
         return TERMINATION;
     }
@@ -399,8 +423,14 @@ ins_t insTpye(uint32_t ins) {
     }
 }
 
+/*
+ * Checks if the condition is satisfied before execution of an instruction.
+ * Returns 1 if it is, 0 if not.
+ */
 int checkCond(state_t *state) {
     switch (state->decoded->cond) {
+        case AL:
+            return 1;
         case EQ:
             return getFLag(state, Z_BIT);
         case NE:
@@ -415,13 +445,15 @@ int checkCond(state_t *state) {
         case LE:
             return getFLag(state, Z_BIT)
                     || getFLag(state, N_BIT) != getFLag(state, V_BIT);
-        default:
-            return 1;
     }
 }
 
+/*
+ * It asserts that the shiftValue is smaller than the size of the word.
+ * Returns the data shifted by shiftValue using a shift specified. 
+ */ 
 uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue) {
-    assert(shiftValue < 32);
+    assert(shiftValue < BITS_IN_WORD);
     if (shiftValue == 0) {
         return data;
     }
@@ -442,8 +474,14 @@ uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue) {
     return data;
 }
 
+/*
+ * Asserts that shiftValue is not longer than size of the word.
+ * Returns the last bit discarded/rotated by the corresponding shift 
+ * For left shift, it is BITS_IN_WORD - shiftvalue and for right 
+ * shifts it is shiftvalue - 1.
+ */
 int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
-    assert(shiftValue < 32);
+    assert(shiftValue < BITS_IN_WORD);
     if (shiftValue == 0) {
         return 0;
     }
@@ -461,6 +499,10 @@ int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
     return maskBits(data, carryBit, carryBit);
 }
 
+/*
+ * Executes shift register function necessary for computing operand2. 
+ * Returns the shift output struct containing shifted data and the carry bit.
+ */
 shift_o shiftReg(state_t *state) {
     decoded_t *decoded = state->decoded;
 
@@ -476,13 +518,12 @@ shift_o shiftReg(state_t *state) {
     return output;
 }
 
-// Returns the value of operand2
-// if bit I is set, the operand2 is an immediate value rotated right by given
-// number of places.
-// if bit I is cleared, the operand2 is specified by a register rm. It is either
-// rotated by a constant value(if bit4 is cleared) or rotated by a least
-// significant byte of rs
 
+/*
+ * Executes one of data processing instructions. Asserts that none of the 
+ * registers involved id PC. Alters only CPSR flags in case of TST, CMP, TEQ.
+ * In other cases it writes the resul to rd.
+ */
 void dataProcessing(state_t *state) {
     decoded_t *decoded = state->decoded;
 
@@ -554,6 +595,11 @@ void dataProcessing(state_t *state) {
     }
 }
 
+/*
+ * Executes the multiply instruction.
+ * None of the registers involved can be PC and destination register can't
+ * be the same as rm.
+ */
 void multiply(state_t *state) {
     decoded_t *decoded = state->decoded;
 
@@ -578,7 +624,12 @@ void multiply(state_t *state) {
     }
 }
 
-int checkPinAddresses(uint32_t address) {
+/*
+ * Checks if the single data transfer is accessing one of GPIO adresses
+ * If yes, it outputs the corresponding messagge
+ * Returns 1 if it is a GPIO address and 0 if it is not.
+ */
+int checkGpioAddresses(uint32_t address) {
 	if(address == 0x20200028) {
 	    printf("PIN OFF\n");
 	    return 1;
@@ -603,7 +654,14 @@ int checkPinAddresses(uint32_t address) {
     return 0;
 }
 
-// Transfers data depending in the conditions
+/*
+ * Executes single data transfer instruction. Checks if the instruction to be
+ * executed is in the bounds of memory size and gpio adresses. If not, it
+ * outputs the error and keeps working.
+ *
+ * If the code is loading from GPIO address, the loaded value is equal to that
+ * address. 
+ */
 void singleDataTransfer(state_t *state) {
     decoded_t *decoded = state->decoded;
 
@@ -626,7 +684,7 @@ void singleDataTransfer(state_t *state) {
     }
 
     if (address > MEMORY_SIZE) {
-		if (checkPinAddresses(address)) {
+		if (checkGpioAddresses(address)) {
 			if(decoded->isL) {
 				state->registers[decoded->rd] = address;
 			}
@@ -653,6 +711,10 @@ void singleDataTransfer(state_t *state) {
 
 }
 
+/*
+ * Executes branch instruction. Changes the PC according to the offset
+ * and empties the pipeline.
+ */
 void branch(state_t *state) {
     state->registers[PC_REG] += state->decoded->branchOffset;
     state->isDecoded = 0;
