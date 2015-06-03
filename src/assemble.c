@@ -6,12 +6,20 @@
 #include <assert.h>
 #include <endian.h>
 
+/*
+ * CONSTANTS:
+ *
+ * Helper constants for memory and address position 
+ */
+#define MEMORY_SIZE 65536
 #define MAX_LINE_LENGTH 512
-#define BYTES_IN_WORD 4
 #define BITS_IN_BYTE 8
-
+#define BYTES_IN_WORD 4
 #define INT_BASE 10
 
+/*
+ * Constants for representing specific bits positions
+ */
 #define I_BIT 25
 #define S_BIT 20
 #define A_BIT 21
@@ -19,36 +27,56 @@
 #define U_BIT 23
 #define L_BIT 20
 
-#define MULTIPLY_CONST 4
+/*
+ * Constants for register positions in multiply instruction
+ */
 #define MULTIPLY_RD 16
 #define MULTIPLY_RN 12
+#define MULTIPLY_CONST 4
 #define MULTIPLY_RS 8
 #define MULTIPLY_RM 0
 
-#define OFFSET_POS 0
+/*
+ * Constants register and address positions in single data transfer instructions
+ */
 #define COND_POS 28
-#define RD_POS 12
 #define OPCODE_POS 21
 #define RN_POS 16
+#define RD_POS 12
+#define RS_POS 8
 #define RM_POS 0
+#define OFFSET_POS 0
 
+/*
+ * Constants for shifting bits positions accesss 
+ */
 #define SHIFT_TYPE_POS 5
 #define SHIFT_VALUE_POS 7
-#define RS_POS 8
 #define IMM_ROTATE_POS 8
 
-#define MEMORY_SIZE 65536
-
+/*
+ * STRUCTURES:
+ *
+ * TODO:
+ */
 typedef struct map_elem {
     char *string;
     int integer;
     struct map_elem *next;
 } map_e;
 
+/*
+ * TODO:
+ */
 typedef struct map {
     map_e *head;
 } map_t;
 
+/*
+ * FUNCTIONS:
+ *
+ * Map functions for operating with map_elem and map_t structures 
+ */
 map_e *mapAllocElem(void);
 void mapFreeElem(map_e *elem);
 void mapInit(map_t *m);
@@ -56,15 +84,24 @@ void mapDestroy(map_t *m);
 void mapPut(map_t *m, char *string, int integer);
 int mapGet(map_t *m, char *string);
 
+/*
+ * Functions used for setting bits at the given positon
+ */
 uint32_t setBit(uint32_t ins, int pos);
 uint32_t setBits(uint32_t ins, uint32_t val, int pos);
 
+/*
+ * Principle functions for performing the assembly using two passes 
+ */
 uint32_t assembly(char **argv, uint8_t *memory);
 uint32_t firstPass(FILE *fp, map_t *labelMap);
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
         uint8_t *memory);
 void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength);
 
+/*
+ *
+ */
 int isLabel(char *buf);
 map_t initOpcodeMap(void);
 map_t initCondMap(void);
@@ -74,6 +111,9 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
 
 char **tokenizer(char *buf);
 
+/*
+ * Functions representing subsets of ARM instruction set
+ */
 void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap);
 void multiply(char **tokens, uint8_t *memory, uint32_t address);
@@ -82,13 +122,19 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap);
 
-// single data transfer helper functions
+/*
+ * Single data transfer helper functions
+ */
 uint32_t setIndexing(char **tokens, uint32_t ins);
 uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
         uint8_t *memory, uint32_t address);
 uint32_t setRnValue(char **tokens, uint32_t ins);
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
+
+/*
+ * FUNCTION IMPLEMENTATION:
+ */
 
 int main(int argc, char **argv) {
 
@@ -154,14 +200,25 @@ int mapGet(map_t *m, char *string) {
     return elem->integer;
 }
 
+/*
+ * Function sets one bit of the instruction at the given position 
+ * and return modified instruction
+ */
 uint32_t setBit(uint32_t ins, int pos) {
     return ins | (1 << pos);
 }
 
+/*
+ * Function sets bits of the instruction from the given position 
+ * depending on the given value and return modified instruction
+ */
 uint32_t setBits(uint32_t ins, uint32_t val, int pos) {
     return ins | (val << pos);
 }
 
+/*
+ * TODO:
+ */
 uint32_t assembly(char **argv, uint8_t *memory) {
     FILE *fp = fopen(argv[1], "r");
     if (fp == NULL) {
@@ -184,6 +241,11 @@ uint32_t assembly(char **argv, uint8_t *memory) {
     return totalLength;
 }
 
+/*
+ * Function goes through the code checking where there are labels and
+ * inserts those labels with their addresses to the map structure 
+ * and returns end of the code address
+ */
 uint32_t firstPass(FILE *fp, map_t *labelMap) {
     uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
@@ -192,6 +254,9 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
             buf[strlen(buf) - 2] = '\0';
             mapPut(labelMap, buf, address);
         } else {
+            /*
+             * Ignore empty spaces and lines in the code
+             */
             if (strcmp("", buf) && strcmp("\n", buf)) {
                 address += BYTES_IN_WORD;
             }
@@ -201,8 +266,16 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     return address;
 }
 
+/*
+ * Function generates binary encoding splitting line of the code to the tokens
+ * and calling given instruction set. After encoding it destroys map structures 
+ * and returns length of the program.
+ */
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
         uint8_t *memory) {
+    /*
+     * Initialization of map_t structure
+     */
     map_t opcodeMap = initOpcodeMap();
     map_t condMap = initCondMap();
     map_t shiftMap = initShiftMap();
@@ -210,17 +283,21 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     uint32_t address = 0;
 
     char buf[MAX_LINE_LENGTH];
+    /*
+     * Split code to the lines ignoring labels 
+     */
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
-
             char **tokens = tokenizer(buf);
             if (tokens[0] == NULL) {
                 free(tokens);
-
                 continue;
             }
             int route = mapGet(&routingMap, tokens[0]);
 
+            /*
+             * Choose instruction set depending on the route value
+             */
             //TODO add a fancy enum
             switch (route) {
                 case 0:
@@ -268,10 +345,16 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
     fclose(fp);
 }
 
+/*
+ * Function returns 1 if the given line of the code includes label  
+ */
 int isLabel(char *buf) {
     return buf[strlen(buf) - 2] == ':';
 }
 
+/*
+ * TODO:
+ */
 map_t initRoutingMap(void) {
     map_t routingMap;
     mapInit(&routingMap);
@@ -307,6 +390,9 @@ map_t initRoutingMap(void) {
 
 }
 
+/*
+ * TODO:
+ */
 map_t initOpcodeMap(void) {
     map_t opcodeMap;
     mapInit(&opcodeMap);
@@ -323,6 +409,9 @@ map_t initOpcodeMap(void) {
     return opcodeMap;
 }
 
+/*
+ * TODO:
+ */
 map_t initCondMap(void) {
     map_t condMap;
     mapInit(&condMap);
@@ -337,6 +426,9 @@ map_t initCondMap(void) {
     return condMap;
 }
 
+/*
+ * TODO:
+ */
 map_t initShiftMap(void) {
     map_t shiftMap;
     mapInit(&shiftMap);
@@ -347,6 +439,9 @@ map_t initShiftMap(void) {
     return shiftMap;
 }
 
+/*
+ * Function stores given word(encoded instruction) to the memory 
+ */
 void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
     for (int i = 0; i < BYTES_IN_WORD; i++) {
         memory[address + i] = (uint8_t) word;
@@ -354,6 +449,9 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
     }
 }
 
+/*
+ * Function splits 
+ */
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * 10);
     memset(tokens, 0, sizeof(char *) * 10);
