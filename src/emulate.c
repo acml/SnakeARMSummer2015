@@ -26,7 +26,7 @@
 #define PC_AHEAD_BYTES 8
 
 /*
- * Enum to make function handling easier
+ * Enum that holds the type of instruction
  */
 typedef enum {
     DATA_PROCESSING,
@@ -37,7 +37,7 @@ typedef enum {
 } ins_t;
 
 /*
- * Enum to aid with checking the conditions on an instruction
+ * ENum that holds condition types for instruction execution
  */
 typedef enum {
     EQ = 0,
@@ -50,7 +50,7 @@ typedef enum {
 } cond_t;
 
 /*
- * Simplifies handling of ARM commands
+ * Enum that holds Data Processing instruction types
  */
 typedef enum {
     AND = 0,
@@ -66,7 +66,7 @@ typedef enum {
 } opcode_t;
 
 /*
- * Simplifies handling of shifter functionality
+ * Holds the shift types for shifter
  */
 typedef enum {
     LSL = 0,
@@ -100,7 +100,7 @@ typedef struct arm_decoded {
 } decoded_t;
 
 /*
- * Encapsulates the complete state of the emulated processor
+ * Holds the complete state of the emulated processor
  */
 typedef struct arm_state {
     decoded_t *decoded;
@@ -113,7 +113,7 @@ typedef struct arm_state {
 } state_t;
 
 /*
- * The data and carry that the shifter would output
+ * Holds the output of shifter
  */
 typedef struct shift_output {
     uint32_t data;
@@ -153,7 +153,7 @@ void branch(state_t *state);
 
 /*
  * Creates a state, reads in the binary file
- * hen performs the fetch-execute cycle
+ * then performs the fetch-execute cycle
  * contains EXIT codes from the stdlib header
  */
 int main(int argc, char **argv) {
@@ -184,9 +184,9 @@ int main(int argc, char **argv) {
 }
 
 /*  
- * allocate memory for a new state_t
- * initialises all the values in the struct
- * returns a pointer to the state_t
+ * Allocate memory for a new state_t
+ * Initialises all the values in the struct
+ * Returns a pointer to the state_t
  */
 state_t *newState(void) {
     state_t *state = malloc(sizeof(state_t));
@@ -253,18 +253,18 @@ void delState(state_t *state) {
  * Opens and reads the file specified
  * Writes this data to the state
  * Closes file if opened, and returns exit codes
- * Return 0 on failure, return 1 on success
+ * Return 0 on failure, return EXIT_SUCCESS on success
  */ 
 int readBinary(state_t *state, int argc, char **argv) {
     if (argc == 1) {
         printf("No input file specified.\n");
-        return 0;
+        return EXIT_FAILURE;
     }
 
     FILE *fp = fopen(argv[1], "rb");
     if (fp == NULL) {
         printf("Could not open input file.\n");
-        return 0;
+        return EXIT_FAILURE;
     }
 
     uint8_t *buffer = malloc(sizeof(uint8_t));
@@ -276,7 +276,7 @@ int readBinary(state_t *state, int argc, char **argv) {
     free(buffer);
 
     fclose(fp);
-    return 1;
+    return EXIT_SUCCESS;
 }
 
 /*
@@ -303,12 +303,12 @@ int outputState(state_t *state) {
         }
     }
 
-    return 1;
+    return EXIT_SUCCESS;
 }
 
 /* 
  * Prints the contents of the register in a state
- * If PC or CPSR, doesn't print content
+ * If it is r15 or r16, it prints label PC or CPSR respectively
  */
 void printRegister(state_t *state, int reg) {
     if (reg == PC_REG) {
@@ -393,8 +393,6 @@ void decode(state_t *state) {
     decoded->isL = maskBits(instruction, L_BIT, L_BIT);
 
     //sets the fields which are larger portions of the instruction
-    //does this depending on what type of instruction it is
-    //to avoid setting more fields than needed
     if (decoded->ins != BRANCH) {
         decoded->rd = maskBits(instruction, 15, 12);
         decoded->rn = maskBits(instruction, 19, 16);
@@ -420,7 +418,7 @@ void decode(state_t *state) {
     decoded->shiftValue = maskBits(instruction, 11, 7);
     
     //does the shifting at this stage (if needed), for ease of mind later on
-    //if no need to shift, just passes the values as normal
+    //if no need to shift, just passes the value
     if (decoded->ins == DATA_PROCESSING) {
         uint32_t data = maskBits(instruction, 7, 0);
         uint32_t shiftValue = maskBits(instruction, 11, 8) * 2;
@@ -433,7 +431,7 @@ void decode(state_t *state) {
     uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
     
-    //lets others know that the instruction has been decoded
+    //informs pipeline that the instruction was executed
     state->isDecoded = 1;
 }
 
