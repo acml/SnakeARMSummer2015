@@ -1,0 +1,2 @@
+src/./assemble programs/gpio.s src/out
+src/./emulate src/out
