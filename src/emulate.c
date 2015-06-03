@@ -602,7 +602,7 @@ shift_o shiftReg(state_t *state) {
 
 /*
  * Executes one of data processing instructions. Asserts that none of the 
- * registers involved id PC. Alters only CPSR flags in case of TST, CMP, TEQ.
+ * registers involved is PC. Alters only CPSR flags in case of TST, CMP, TEQ.
  * In other cases it writes the resul to rd.
  */
 void dataProcessing(state_t *state) {
@@ -621,6 +621,7 @@ void dataProcessing(state_t *state) {
         carry = output.carry;
     }
 
+    //switches on the opcode and then carries out the operation
     uint32_t result = 0;
     switch (decoded->opcode) {
         case AND:
@@ -655,6 +656,8 @@ void dataProcessing(state_t *state) {
             break;
     }
 
+    //switches on the opcode once again
+    //determines when to set value
     switch (decoded->opcode) {
         case TST:
         case TEQ:
@@ -665,6 +668,7 @@ void dataProcessing(state_t *state) {
             break;
     }
 
+    //sets the flags if told to do
     if (decoded->isS) {
         setFlag(state, carry, C_BIT);
         if (result == 0) {
@@ -678,8 +682,8 @@ void dataProcessing(state_t *state) {
 
 /*
  * Executes the multiply instruction.
- * None of the registers involved can be PC and destination register can't
- * be the same as rm.
+ * Asserts that none of the registers involved can be PC
+ * Also asserts that destination register can't be the same as rm.
  */
 void multiply(state_t *state) {
     decoded_t *decoded = state->decoded;
