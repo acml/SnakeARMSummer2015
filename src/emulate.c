@@ -25,6 +25,9 @@
 #define CPSR_REG 16
 #define PC_AHEAD_BYTES 8
 
+/*
+ * Enum to make function handling easier
+ */
 typedef enum {
     DATA_PROCESSING,
     MULTIPLY,
@@ -33,6 +36,9 @@ typedef enum {
     TERMINATION
 } ins_t;
 
+/*
+ * Enum to aid with checking the conditions on an instruction
+ */
 typedef enum {
     EQ = 0,
     NE = 1,
@@ -43,6 +49,9 @@ typedef enum {
     AL = 14
 } cond_t;
 
+/*
+ * Simplifies handling of ARM commands
+ */
 typedef enum {
     AND = 0,
     EOR = 1,
@@ -56,6 +65,9 @@ typedef enum {
     MOV = 13
 } opcode_t;
 
+/*
+ * Simplifies handling of shifter functionality
+ */
 typedef enum {
     LSL = 0,
     LSR = 1,
@@ -63,6 +75,9 @@ typedef enum {
     ROR = 3
 } shift_t;
 
+/*
+ * Contains all the decoded information from an instruction
+ */
 typedef struct arm_decoded {
     ins_t ins;
     int isRegShiftValue;
@@ -84,6 +99,9 @@ typedef struct arm_decoded {
     uint32_t branchOffset;
 } decoded_t;
 
+/*
+ * Encapsulates the complete state of the emulated processor
+ */
 typedef struct arm_state {
     decoded_t *decoded;
     uint32_t fetched;
@@ -94,11 +112,19 @@ typedef struct arm_state {
     int isTermainated;
 } state_t;
 
+/*
+ * The data and carry that the shifter would output
+ */
 typedef struct shift_output {
     uint32_t data;
     int carry;
 } shift_o;
 
+/*
+ * The complete collection of prototype functions
+ * are written here so we don't have to worry about
+ * arranging the functions in the correct order
+ */
 state_t *newState(void);
 void delState(state_t *state);
 int readBinary(state_t *state, int argc, char **argv);
@@ -125,7 +151,11 @@ void multiply(state_t *state);
 void singleDataTransfer(state_t *state);
 void branch(state_t *state);
 
-//entry point of emulator
+/*
+ * Creates a state, reads in the binary file
+ * hen performs the fetch-execute cycle
+ * contains EXIT codes from the stdlib header
+ */
 int main(int argc, char **argv) {
     state_t *state = newState();
     if (state == NULL) {
@@ -153,7 +183,11 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
-//
+/*  
+ * allocate memory for a new state_t
+ * initialises all the values in the struct
+ * returns a pointer to the state_t
+ */
 state_t *newState(void) {
     state_t *state = malloc(sizeof(state_t));
     if (state == NULL) {
@@ -191,6 +225,11 @@ state_t *newState(void) {
     return state;
 }
 
+/*  
+ * Checks for null pointers
+ * Frees all the pointers inside the state
+ * Finally frees state itself
+ */ 
 void delState(state_t *state) {
     if (state != NULL) {
         if (state->decoded != NULL) {
@@ -209,6 +248,13 @@ void delState(state_t *state) {
     }
 }
 
+/*
+ * Takes in the program's arguments
+ * Opens and reads the file specified
+ * Writes this data to the state
+ * Closes file if opened, and returns exit codes
+ * Return 0 on failure, return 1 on success
+ */ 
 int readBinary(state_t *state, int argc, char **argv) {
     if (argc == 1) {
         printf("No input file specified.\n");
@@ -233,6 +279,11 @@ int readBinary(state_t *state, int argc, char **argv) {
     return 1;
 }
 
+/*
+ * Prints the content of the state's registers
+ * Prints the content of memory at the given state
+ * Prints the above to standard out and returns 1 to indicate success
+ */
 int outputState(state_t *state) {
     printf("Registers:\n");
     for (int i = 0; i < REGISTERS_COUNT; i++) {
@@ -255,6 +306,10 @@ int outputState(state_t *state) {
     return 1;
 }
 
+/* 
+ * Prints the contents of the register in a state
+ * If PC or CPSR, doesn't print content
+ */
 void printRegister(state_t *state, int reg) {
     if (reg == PC_REG) {
         printf("PC  ");
@@ -266,6 +321,12 @@ void printRegister(state_t *state, int reg) {
     printf(": %10d (0x%08x)\n", state->registers[reg], state->registers[reg]);
 }
 
+/*
+ * Checks if the instruction has been decoded yet
+ * If decoded, then checks for termination
+ * If still running, then checks the conditions on the current instruction
+ * Finally, switches on the instruction to decide what to execute
+ */
 void execute(state_t *state) {
     if (!state->isDecoded) {
         return;
@@ -300,19 +361,29 @@ void execute(state_t *state) {
     }
 }
 
+/*
+ * Checks if the data has been fetched
+ * Initialises all the values in the decoded_t struct
+ * Sets the "isDecoded" field once completed
+ */
 void decode(state_t *state) {
+    //returns if instruction not fetched
     if (!state->isFetched) {
         state->isDecoded = 0;
         return;
     }
 
     decoded_t *decoded = state->decoded;
-
+    
+    //clears the data currently pointed to before using it
     memset(decoded, 0, sizeof(decoded_t));
     uint32_t instruction = state->fetched;
 
-    decoded->ins = insType(instruction);
+    //sets the instruction field
+    decoded->ins = insTpye(instruction);
 
+
+    //sets the fields which require only individual bits
     decoded->isRegShiftValue = maskBits(instruction, 4, 4);
     decoded->isI = maskBits(instruction, I_BIT, I_BIT);
     decoded->isS = maskBits(instruction, S_BIT, S_BIT);
@@ -321,6 +392,9 @@ void decode(state_t *state) {
     decoded->isU = maskBits(instruction, U_BIT, U_BIT);
     decoded->isL = maskBits(instruction, L_BIT, L_BIT);
 
+    //sets the fields which are larger portions of the instruction
+    //does this depending on what type of instruction it is
+    //to avoid setting more fields than needed
     if (decoded->ins != BRANCH) {
         decoded->rd = maskBits(instruction, 15, 12);
         decoded->rn = maskBits(instruction, 19, 16);
@@ -339,10 +413,14 @@ void decode(state_t *state) {
         }
     }
 
+    //set the conditions, opcode, type of shift, and shifter values
     decoded->cond = maskBits(instruction, 31, 28);
     decoded->opcode = maskBits(instruction, 24, 21);
     decoded->shift = maskBits(instruction, 6, 5);
     decoded->shiftValue = maskBits(instruction, 11, 7);
+    
+    //does the shifting at this stage (if needed), for ease of mind later on
+    //if no need to shift, just passes the values as normal
     if (decoded->ins == DATA_PROCESSING) {
         uint32_t data = maskBits(instruction, 7, 0);
         uint32_t shiftValue = maskBits(instruction, 11, 8) * 2;
@@ -350,9 +428,12 @@ void decode(state_t *state) {
     } else {
         decoded->immValue = maskBits(instruction, 11, 0);
     }
+    
+    //calculates the offset for the branch instruction
     uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
-
+    
+    //lets others know that the instruction has been decoded
     state->isDecoded = 1;
 }
 
