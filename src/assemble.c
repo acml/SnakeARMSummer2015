@@ -339,7 +339,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
 }
 
 /*
- * 
+ * Function writes memory positions and related data from the given file
  */
 void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
     FILE *fp = fopen(argv[2], "wb");
@@ -460,7 +460,7 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
 }
 
 /*
- * Function splits 
+ * Function returns lines of code split to the tokens 
  */
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * 10);
@@ -474,9 +474,16 @@ char **tokenizer(char *buf) {
     char *token = strtok(buf, " \n");
     int i = 0;
     while (token != NULL) {
+        /*
+         * Ignore coments
+         * TODO: implement case for lines starting with comment
+         */
         if (token[0] == ';') {
             return tokens;
         }
+        /*
+         * Ignore spaces and empty lines
+         */
         tokens[i] = token;
         token = strtok(NULL, " ,\n");
         i++;
@@ -489,30 +496,42 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap) {
     uint32_t ins = 0;
 
-    //strcmp returns 0 if there's a match, 1 if no match
-    //0 is false, hence !0 indicates there's a match
-    //trying to work out what cond should be
+    /*
+     * strcmp returns 0 if there's a match, 1 if no match
+     * 0 is false, hence !0 indicates there's a match
+     * trying to work out what cond should be
+     */
     char *condStr = tokens[0];
     condStr += 1;
     uint32_t cond = mapGet(condMap, condStr);
 
-    //for bits 27-24
+    /*
+     *for bits 27-24
+     */
     uint32_t constant = 0xa;
 
-    //calculate the offset
+    /*
+     *calculate the offset
+     */
     uint32_t next_addr = mapGet(labelMap, tokens[1]);
     int32_t offset = next_addr - (address + 8);
 
     offset >>= 2;
 
-    //set cond
+    /*
+     * Set condition
+     */
     ins = ins | cond << 28;
 
-    //set constant
+    /*
+     * Set constant
+     */
     ins = ins | constant << 24;
 
-    //set offset
-    offset &= 0xffffff; // make offset 24bit
+    /*
+     * Set offset (make it 24bit)
+     */
+    offset &= 0xffffff; 
 
     ins = ins | offset;
 
@@ -521,39 +540,56 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
 
 void multiply(char **tokens, uint8_t *memory, uint32_t address) {
     uint32_t ins = 0;
+    /*
+     * In case of mla function: set bit A and Rn register
+     */
     if (!strcmp(tokens[0], "mla")) {
         //mla
         ins = setBits(ins, 1, A_BIT);
         int rn = strtol(tokens[4] + 1, NULL, INT_BASE);
         ins = ins | rn << MULTIPLY_RN;
     }
+    /*
+     * Get values of registers
+     */
     int rs = strtol(tokens[3] + 1, NULL, INT_BASE);
     int rm = strtol(tokens[2] + 1, NULL, INT_BASE);
     int rd = strtol(tokens[1] + 1, NULL, INT_BASE);
+    
     ins = ins | rs << MULTIPLY_RS;
     ins = ins | rm << MULTIPLY_RM;
     ins = ins | rd << MULTIPLY_RD;
+    
     int cond = 0xe;
     ins = ins | cond << COND_POS;
+    /*
+     * Set constant value 9 starting at position 4
+     */
     int constField = 9;
     ins = ins | constField << MULTIPLY_CONST;
     storeWord(memory, address, ins);
 
 }
 
-//uint32_t sDataTrans(char **tokens, uint32_t *constAdress)
 void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
         map_t *shiftMap, uint32_t *endProgramPtr) {
     uint32_t ins = 0;
 
-    //Set post/pre Indexing bit
+    /*
+     * Set pre/postIndexing bit
+     */
     ins = setIndexing(tokens, ins);
 
-    // set value of Rd
+    /*
+     * Set Rd value
+     */
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
     ins = setBits(ins, 0x1, 26); //TODO make in const
-    // set instruction type
+    
+    /*
+     * Set type if the instruction
+     */
     int isLoad = 0;
     if (!strcmp(tokens[0], "ldr")) {
         ins = setBits(ins, 1, L_BIT);
@@ -561,8 +597,14 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
     }
 
     // address as a numeric constant form
+    /*
+     * Address is represented as a numeric constant form  
+     */
     if (isLoad == 1) {
         //Immediate value expression
+        /*
+         * Operand2 represented by immediate value
+         */
         if (tokens[2][0] == '=') {
             ins = setImmValue(ins, tokens, endProgramPtr, memory, address);
         }
@@ -574,10 +616,14 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
     int iBitValue = 0;
 
     if (tokens[3] == NULL) {
-        // set offset to 0
+        /*
+         * Offset is not specified 
+         */
         ins = setBits(ins, 0, OFFSET_POS);
     } else if (tokens[3][0] == '#') {
-        // set offset to value of expression
+        /*
+         * Offset is represented by numerical value
+         */
         int expValue = strtol(tokens[3] + 1, NULL, 0);
 
         if (expValue < 0) {
@@ -587,7 +633,9 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
             ins = setBits(ins, expValue, OFFSET_POS);
         }
     } else {
-        // if offset of base register is represented by a register
+        /*
+         * Offset represented as a register
+         */
         if (tokens[3][0] == 'r') {
             rm = strtol(tokens[3] + 1, NULL, 0);
         } else {
@@ -596,20 +644,30 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
         if (tokens[3][0] != '-') {
             setU = 1;
         }
-        // shift cases
+        /*
+         * Register is shifted 
+         */
         if (tokens[4] != NULL) {
             char *from = tokens[4];
             char shiftType[4];
-            strncpy(shiftType, from, 3); // takes first 3 chars from token line
+            /*
+             * Get string representing shifting type 
+             */
+            strncpy(shiftType, from, 3); 
             shiftType[4] = '\0';
-            char *shiftValue = strdup(from + 4); // takes chars from position 4
+            /*
+             * Get value for shifting and represent it in the instruction
+             */
+            char *shiftValue = strdup(from + 4); 
             ins = setShiftType(ins, shiftType);
             ins = setShiftValue(ins, shiftValue);
         }
         iBitValue = 1;
 
     }
-
+    /*
+     * Set constant fields in the instruction 
+     */
     ins = setBits(ins, 0xe, COND_POS);
     ins = setBits(ins, iBitValue, I_BIT);
     ins = setBits(ins, setU, U_BIT);
@@ -619,26 +677,44 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 
 }
 
+/*
+ * Set the bit P if given tokens represent preindexing 
+ * and return updated instruction
+ */
 uint32_t setIndexing(char **tokens, uint32_t ins) {
     int postIndexing = 0;
     int i = 0;
-    //Check if closing bracket is in tokens[2]
+
+    /*
+     * Check if closing bracket is in tokens[2]
+     */
     while (postIndexing == 0 && tokens[2][i] != '\0') {
         if (tokens[2][i] == ']') {
             postIndexing = 1;
         }
         i++;
     }
+    /*
+     * Set preindexing when bracket is in different token 
+     * or if there is not another token representing expresion 
+     */
     if (!postIndexing || tokens[3] == NULL) {
         ins = setBits(ins, 1, P_BIT);
     }
     return ins;
 }
 
+/*
+ * Return updated instruction depending on the representation of immediate value
+ */
 uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
         uint8_t *memory, uint32_t address) {
 
     uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
+
+    /*
+     * Do mov function when immValue is smaller than const value 0xFF
+     */
     if (immValue <= 0xff) {
         ins = setBits(ins, 1, I_BIT);
         ins = setBits(ins, 0xd, OPCODE_POS);
@@ -650,6 +726,11 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
 
         //TODO quite hacky, maybe rewrite
         //Alter tokens so it works
+        /*
+         * Put value of expression to the end of assembled program 
+         * and uses its address with pc register to represent base register
+         * and calculated offset   
+         */
         tokens[2] = "[r15]";
         int offset = *endProgramPtr - address - 8;
         char stringOffset[50]; //TODO find how big this needs to be
@@ -664,15 +745,24 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
     }
 }
 
+/*
+ * Get value of Rn register and return updated instruction 
+ */
 uint32_t setRnValue(char **tokens, uint32_t ins) {
     int rn = 0;
-
+    /*
+     * Ignore place of bracket and char 'r' to get value of register 
+     */
     rn = strtol(tokens[2] + 2, NULL, 0);
 
     ins = setBits(ins, rn, RN_POS);
     return ins;
 }
 
+/*
+ * Represent string shiftType as a numeric value and return updated instruction 
+ * depending on the type of the shift
+ */
 uint32_t setShiftType(uint32_t ins, char *shiftType) {
     int shiftBits = 0;
     if (!strcmp(shiftType, "lsl")) {
@@ -688,12 +778,21 @@ uint32_t setShiftType(uint32_t ins, char *shiftType) {
     return ins;
 }
 
+/*
+ * Return updated instruction depending on the representation of shift value
+ */
 uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
+    /*
+     * Shift value is represented as a numeric value 
+     */
     if (shiftValue[0] == '#') {
         int shiftInt = strtol(shiftValue + 1, NULL, 0);
         assert(shiftInt < 16);
         ins = setBits(ins, shiftInt, 7);
     } else {
+        /*
+         * Shift value is represented as a register will set possition 4 
+         */
         int rs = strtol(shiftValue + 1, NULL, 0);
         ins = setBits(ins, rs, 8);
         ins = setBits(ins, 1, 4);
