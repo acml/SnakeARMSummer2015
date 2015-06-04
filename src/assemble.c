@@ -19,8 +19,6 @@
 #define BRANCH_CONST_POS 24
 #define BRANCH_OFFEST_POS 0
 
-#define INT_BASE 10
-
 /*
  * Constants for representing specific bits positions
  */
@@ -34,11 +32,9 @@
 /*
  * Constants for register positions in multiply instruction
  */
-#define MULTIPLY_RD 16
-#define MULTIPLY_RN 12
-#define MULTIPLY_CONST 4
-#define MULTIPLY_RS 8
-#define MULTIPLY_RM 0
+#define MULTIPLY_RD_POS 16
+#define MULTIPLY_RN_POS 12
+#define MULTIPLY_CONST_POS 4
 
 /*
  * Constants register and address positions in single data transfer instructions
@@ -87,12 +83,6 @@ void mapInit(map_t *m);
 void mapDestroy(map_t *m);
 void mapPut(map_t *m, char *string, uint32_t integer);
 uint32_t mapGet(map_t *m, char *string);
-
-/*
- * Functions used for setting bits at the given positon
- */
-uint32_t setBit(uint32_t ins, int pos);
-uint32_t setBits(uint32_t ins, uint32_t val, int pos);
 
 /*
  * Principle functions for performing the assembly using two passes
@@ -219,22 +209,6 @@ uint32_t mapGet(map_t *m, char *string) {
         elem = elem->next;
     }
     return elem->integer;
-}
-
-/*
- * Function sets one bit of the instruction at the given position
- * and return modified instruction
- */
-uint32_t setBit(uint32_t ins, int pos) {
-    return ins | (1 << pos);
-}
-
-/*
- * Function sets bits of the instruction from the given position
- * depending on the given value and return modified instruction
- */
-uint32_t setBits(uint32_t ins, uint32_t val, int pos) {
-    return ins | val << pos;
 }
 
 /*
@@ -530,52 +504,50 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
      * work out what cond should be
      */
     uint32_t cond = mapGet(condMap, tokens[0] + 1);
-    ins = setBits(ins, cond, COND_POS);
+    ins |= cond << COND_POS;
     /*
      * for bits 27-24
      */
-    ins = setBits(ins, 0xa, BRANCH_CONST_POS);
+    ins |= 0xa << BRANCH_CONST_POS;
     /*
      * calculate the offset
      */
     uint32_t lableAddress = mapGet(labelMap, tokens[1]);
     uint32_t offset = ((lableAddress - (address + 8)) << 6) >> 8;
-    ins = setBits(ins, offset, BRANCH_OFFEST_POS);
+    ins |= offset << BRANCH_OFFEST_POS;
 
     storeWord(memory, address, ins);
 }
 
 void multiply(char **tokens, uint8_t *memory, uint32_t address) {
     uint32_t ins = 0;
+
+    int cond = 0xe;
+    ins |= cond << COND_POS;
     /*
      * In case of mla function: set bit A and Rn register
      */
     if (!strcmp(tokens[0], "mla")) {
         //mla
-        ins = setBits(ins, 1, A_BIT);
-        int rn = strtol(tokens[4] + 1, NULL, INT_BASE);
-        ins = ins | rn << MULTIPLY_RN;
+        ins |= 1 << A_BIT;
+        uint32_t rn = strtol(tokens[4] + 1, NULL, 0);
+        ins |= rn << MULTIPLY_RN_POS;
     }
     /*
      * Get values of registers
      */
-    int rs = strtol(tokens[3] + 1, NULL, INT_BASE);
-    int rm = strtol(tokens[2] + 1, NULL, INT_BASE);
-    int rd = strtol(tokens[1] + 1, NULL, INT_BASE);
-
-    ins = ins | rs << MULTIPLY_RS;
-    ins = ins | rm << MULTIPLY_RM;
-    ins = ins | rd << MULTIPLY_RD;
-
-    int cond = 0xe;
-    ins = ins | cond << COND_POS;
+    uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
+    uint32_t rm = strtol(tokens[2] + 1, NULL, 0);
+    uint32_t rs = strtol(tokens[3] + 1, NULL, 0);
+    ins |= rd << MULTIPLY_RD_POS;
+    ins |= rm << RM_POS;
+    ins |= rs << RS_POS;
     /*
      * Set constant value 9 starting at position 4
      */
-    int constField = 9;
-    ins = ins | constField << MULTIPLY_CONST;
-    storeWord(memory, address, ins);
+    ins |= 0x9 << MULTIPLY_CONST_POS;
 
+    storeWord(memory, address, ins);
 }
 
 void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
@@ -591,15 +563,15 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
      * Set Rd value
      */
     int rd = strtol(tokens[1] + 1, NULL, 0);
-    ins = setBits(ins, rd, RD_POS);
-    ins = setBits(ins, 0x1, 26); //TODO make in const
+    ins |= rd << RD_POS;
+    ins |= 0x1 << 26; //TODO make in const
 
     /*
      * Set type if the instruction
      */
     int isLoad = 0;
     if (!strcmp(tokens[0], "ldr")) {
-        ins = setBits(ins, 1, L_BIT);
+        ins |= 1 << L_BIT;
         isLoad = 1;
     }
 
@@ -626,7 +598,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
         /*
          * Offset is not specified
          */
-        ins = setBits(ins, 0, OFFSET_POS);
+        ins |= 0 << OFFSET_POS;
     } else if (tokens[3][0] == '#') {
         /*
          * Offset is represented by numerical value
@@ -634,10 +606,10 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
         int expValue = strtol(tokens[3] + 1, NULL, 0);
 
         if (expValue < 0) {
-            ins = setBits(ins, -expValue, OFFSET_POS);
+            ins |= -expValue << OFFSET_POS;
             setU = 0;
         } else {
-            ins = setBits(ins, expValue, OFFSET_POS);
+            ins |= expValue << OFFSET_POS;
         }
     } else {
         /*
@@ -675,11 +647,11 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
     /*
      * Set constant fields in the instruction
      */
-    ins = setBits(ins, 0xe, COND_POS);
-    ins = setBits(ins, iBitValue, I_BIT);
-    ins = setBits(ins, setU, U_BIT);
-    ins = setBits(ins, rm, RM_POS);
-    ins = setBits(ins, 0, 5);
+    ins |= 0xe << COND_POS;
+    ins |= iBitValue << I_BIT;
+    ins |= setU << U_BIT;
+    ins |= rm << RM_POS;
+    ins |= 0 << 5;
     storeWord(memory, address, ins);
 
 }
@@ -706,7 +678,7 @@ uint32_t setIndexing(char **tokens, uint32_t ins) {
      * or if there is not another token representing expresion
      */
     if (!postIndexing || tokens[3] == NULL) {
-        ins = setBits(ins, 1, P_BIT);
+        ins |= 1 << P_BIT;
     }
     return ins;
 }
@@ -723,9 +695,9 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
      * Do mov function when immValue is smaller than const value 0xFF
      */
     if (immValue <= 0xff) {
-        ins = setBits(ins, 1, I_BIT);
-        ins = setBits(ins, 0xd, OPCODE_POS);
-        ins = setBits(ins, immValue, OFFSET_POS);
+        ins |= 1 << I_BIT;
+        ins |= 0xd << OPCODE_POS;
+        ins |= immValue << OFFSET_POS;
         ins = ins & 0xfbefffff; //Unset LBIT and bit 26
         return ins;
     } else {
@@ -766,7 +738,7 @@ uint32_t setRnValue(char **tokens, uint32_t ins) {
      */
     rn = strtol(tokens[2] + 2, NULL, 0);
 
-    ins = setBits(ins, rn, RN_POS);
+    ins |= rn << RN_POS;
     return ins;
 }
 
@@ -785,7 +757,7 @@ uint32_t setShiftType(uint32_t ins, char *shiftType) {
     } else if (!strcmp(shiftType, " ror")) {
         shiftBits = 0x3; //11
     }
-    ins = setBits(ins, shiftBits, 5);
+    ins |= shiftBits << 5;
     return ins;
 }
 
@@ -799,14 +771,14 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
     if (shiftValue[0] == '#') {
         int shiftInt = strtol(shiftValue + 1, NULL, 0);
         assert(shiftInt < 16);
-        ins = setBits(ins, shiftInt, 7);
+        ins |= shiftInt << 7;
     } else {
         /*
          * Shift value is represented as a register will set possition 4
          */
         int rs = strtol(shiftValue + 1, NULL, 0);
-        ins = setBits(ins, rs, 8);
-        ins = setBits(ins, 1, 4);
+        ins |= rs << 8;
+        ins |= 1 << 4;
     }
     return ins;
 }
@@ -913,7 +885,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         if (!isRepresentable) {
             printf("Error: not representable");
         } else {
-            ins = setBits(ins, 0x1, I_BIT);
+            ins |= 0x1 << I_BIT;
             ins |= immValue;
             ins |= (shiftValue / 2) << IMM_ROTATE_POS;
         }
@@ -939,7 +911,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
                 } else {
                     uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
                     ins |= rs << RS_POS;
-                    ins = setBits(ins, 0x1, 4); // TODO make it a constant
+                    ins |=  0x1 << 4; // TODO make it a constant
                 }
             }
         }
