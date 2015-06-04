@@ -9,7 +9,7 @@
 /*
  * CONSTANTS:
  *
- * Helper constants for memory and address position 
+ * Helper constants for memory and address position
  */
 #define MEMORY_SIZE 65536
 #define MAX_LINE_LENGTH 512
@@ -48,7 +48,7 @@
 #define OFFSET_POS 0
 
 /*
- * Constants for shifting bits positions accesss 
+ * Constants for shifting bits positions accesss
  */
 #define SHIFT_TYPE_POS 5
 #define SHIFT_VALUE_POS 7
@@ -75,7 +75,7 @@ typedef struct map {
 /*
  * FUNCTIONS:
  *
- * Map functions for operating with map_elem and map_t structures 
+ * Map functions for operating with map_elem and map_t structures
  */
 map_e *mapAllocElem(void);
 void mapFreeElem(map_e *elem);
@@ -91,7 +91,7 @@ uint32_t setBit(uint32_t ins, int pos);
 uint32_t setBits(uint32_t ins, uint32_t val, int pos);
 
 /*
- * Principle functions for performing the assembly using two passes 
+ * Principle functions for performing the assembly using two passes
  */
 uint32_t assembly(char **argv, uint8_t *memory);
 uint32_t firstPass(FILE *fp, map_t *labelMap);
@@ -160,13 +160,14 @@ int main(int argc, char **argv) {
 map_e *mapAllocElem(void) {
     map_e *elem = malloc(sizeof(map_e));
     if (elem == NULL) {
-        perror("newListElem");
+        perror("mapAllocElem");
         exit(EXIT_FAILURE);
     }
     return elem;
 }
 
 void mapFreeElem(map_e *elem) {
+    free(elem->string);
     free(elem);
 }
 
@@ -189,7 +190,11 @@ void mapDestroy(map_t *m) {
  */
 void mapPut(map_t *m, char *string, int integer) {
     map_e *elem = mapAllocElem();
-    elem->string = malloc(strlen(string) * sizeof(char)); //TODO free this
+    elem->string = malloc((strlen(string) + 1) * sizeof(char));
+    if (elem->string == NULL) {
+        perror("mapPut");
+        exit(EXIT_FAILURE);
+    }
     strcpy(elem->string, string);
     elem->integer = integer;
     elem->next = m->head;
@@ -208,7 +213,7 @@ int mapGet(map_t *m, char *string) {
 }
 
 /*
- * Function sets one bit of the instruction at the given position 
+ * Function sets one bit of the instruction at the given position
  * and return modified instruction
  */
 uint32_t setBit(uint32_t ins, int pos) {
@@ -216,7 +221,7 @@ uint32_t setBit(uint32_t ins, int pos) {
 }
 
 /*
- * Function sets bits of the instruction from the given position 
+ * Function sets bits of the instruction from the given position
  * depending on the given value and return modified instruction
  */
 uint32_t setBits(uint32_t ins, uint32_t val, int pos) {
@@ -250,7 +255,7 @@ uint32_t assembly(char **argv, uint8_t *memory) {
 
 /*
  * Function goes through the code checking where there are labels and
- * inserts those labels with their addresses to the map structure 
+ * inserts those labels with their addresses to the map structure
  * and returns end of the code address
  */
 uint32_t firstPass(FILE *fp, map_t *labelMap) {
@@ -275,7 +280,7 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
 
 /*
  * Function generates binary encoding splitting line of the code to the tokens
- * and calling given instruction set. After encoding it destroys map structures 
+ * and calling given instruction set. After encoding it destroys map structures
  * and returns length of the program.
  */
 uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
@@ -291,7 +296,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
 
     char buf[MAX_LINE_LENGTH];
     /*
-     * Split code to the lines ignoring labels 
+     * Split code to the lines ignoring labels
      */
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         if (!isLabel(buf)) {
@@ -356,7 +361,7 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
 }
 
 /*
- * Function returns 1 if the given line of the code includes label  
+ * Function returns 1 if the given line of the code includes label
  */
 int isLabel(char *buf) {
     return buf[strlen(buf) - 2] == ':';
@@ -450,7 +455,7 @@ map_t initShiftMap(void) {
 }
 
 /*
- * Function stores given word(encoded instruction) to the memory 
+ * Function stores given word(encoded instruction) to the memory
  */
 void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
     for (int i = 0; i < BYTES_IN_WORD; i++) {
@@ -460,7 +465,7 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
 }
 
 /*
- * Function returns lines of code split to the tokens 
+ * Function returns lines of code split to the tokens
  */
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * 10);
@@ -531,7 +536,7 @@ void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
     /*
      * Set offset (make it 24bit)
      */
-    offset &= 0xffffff; 
+    offset &= 0xffffff;
 
     ins = ins | offset;
 
@@ -555,11 +560,11 @@ void multiply(char **tokens, uint8_t *memory, uint32_t address) {
     int rs = strtol(tokens[3] + 1, NULL, INT_BASE);
     int rm = strtol(tokens[2] + 1, NULL, INT_BASE);
     int rd = strtol(tokens[1] + 1, NULL, INT_BASE);
-    
+
     ins = ins | rs << MULTIPLY_RS;
     ins = ins | rm << MULTIPLY_RM;
     ins = ins | rd << MULTIPLY_RD;
-    
+
     int cond = 0xe;
     ins = ins | cond << COND_POS;
     /*
@@ -586,7 +591,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins = setBits(ins, rd, RD_POS);
     ins = setBits(ins, 0x1, 26); //TODO make in const
-    
+
     /*
      * Set type if the instruction
      */
@@ -598,7 +603,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 
     // address as a numeric constant form
     /*
-     * Address is represented as a numeric constant form  
+     * Address is represented as a numeric constant form
      */
     if (isLoad == 1) {
         //Immediate value expression
@@ -617,7 +622,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 
     if (tokens[3] == NULL) {
         /*
-         * Offset is not specified 
+         * Offset is not specified
          */
         ins = setBits(ins, 0, OFFSET_POS);
     } else if (tokens[3][0] == '#') {
@@ -645,20 +650,20 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
             setU = 1;
         }
         /*
-         * Register is shifted 
+         * Register is shifted
          */
         if (tokens[4] != NULL) {
             char *from = tokens[4];
             char shiftType[4];
             /*
-             * Get string representing shifting type 
+             * Get string representing shifting type
              */
-            strncpy(shiftType, from, 3); 
+            strncpy(shiftType, from, 3);
             shiftType[4] = '\0';
             /*
              * Get value for shifting and represent it in the instruction
              */
-            char *shiftValue = strdup(from + 4); 
+            char *shiftValue = strdup(from + 4);
             ins = setShiftType(ins, shiftType);
             ins = setShiftValue(ins, shiftValue);
         }
@@ -666,7 +671,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 
     }
     /*
-     * Set constant fields in the instruction 
+     * Set constant fields in the instruction
      */
     ins = setBits(ins, 0xe, COND_POS);
     ins = setBits(ins, iBitValue, I_BIT);
@@ -678,7 +683,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
 }
 
 /*
- * Set the bit P if given tokens represent preindexing 
+ * Set the bit P if given tokens represent preindexing
  * and return updated instruction
  */
 uint32_t setIndexing(char **tokens, uint32_t ins) {
@@ -695,8 +700,8 @@ uint32_t setIndexing(char **tokens, uint32_t ins) {
         i++;
     }
     /*
-     * Set preindexing when bracket is in different token 
-     * or if there is not another token representing expresion 
+     * Set preindexing when bracket is in different token
+     * or if there is not another token representing expresion
      */
     if (!postIndexing || tokens[3] == NULL) {
         ins = setBits(ins, 1, P_BIT);
@@ -727,9 +732,9 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
         //TODO quite hacky, maybe rewrite
         //Alter tokens so it works
         /*
-         * Put value of expression to the end of assembled program 
+         * Put value of expression to the end of assembled program
          * and uses its address with pc register to represent base register
-         * and calculated offset   
+         * and calculated offset
          */
         tokens[2] = "[r15]";
         int offset = *endProgramPtr - address - 8;
@@ -746,12 +751,12 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
 }
 
 /*
- * Get value of Rn register and return updated instruction 
+ * Get value of Rn register and return updated instruction
  */
 uint32_t setRnValue(char **tokens, uint32_t ins) {
     int rn = 0;
     /*
-     * Ignore place of bracket and char 'r' to get value of register 
+     * Ignore place of bracket and char 'r' to get value of register
      */
     rn = strtol(tokens[2] + 2, NULL, 0);
 
@@ -760,7 +765,7 @@ uint32_t setRnValue(char **tokens, uint32_t ins) {
 }
 
 /*
- * Represent string shiftType as a numeric value and return updated instruction 
+ * Represent string shiftType as a numeric value and return updated instruction
  * depending on the type of the shift
  */
 uint32_t setShiftType(uint32_t ins, char *shiftType) {
@@ -783,7 +788,7 @@ uint32_t setShiftType(uint32_t ins, char *shiftType) {
  */
 uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
     /*
-     * Shift value is represented as a numeric value 
+     * Shift value is represented as a numeric value
      */
     if (shiftValue[0] == '#') {
         int shiftInt = strtol(shiftValue + 1, NULL, 0);
@@ -791,7 +796,7 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
         ins = setBits(ins, shiftInt, 7);
     } else {
         /*
-         * Shift value is represented as a register will set possition 4 
+         * Shift value is represented as a register will set possition 4
          */
         int rs = strtol(shiftValue + 1, NULL, 0);
         ins = setBits(ins, rs, 8);
