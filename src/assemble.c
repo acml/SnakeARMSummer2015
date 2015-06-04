@@ -14,6 +14,11 @@
 #define MAX_TOKEN_LENGTH 10
 #define BITS_IN_BYTE 8
 #define BYTES_IN_WORD 4
+
+#define PC_AHEAD_BYTES 8
+#define BRANCH_CONST_POS 24
+#define BRANCH_OFFEST_POS 0
+
 #define INT_BASE 10
 
 /*
@@ -60,7 +65,7 @@
  */
 typedef struct map_elem {
     char *string;
-    int integer;
+    uint32_t integer;
     struct map_elem *next;
 } map_e;
 
@@ -80,8 +85,8 @@ map_e *mapAllocElem(void);
 void mapFreeElem(map_e *elem);
 void mapInit(map_t *m);
 void mapDestroy(map_t *m);
-void mapPut(map_t *m, char *string, int integer);
-int mapGet(map_t *m, char *string);
+void mapPut(map_t *m, char *string, uint32_t integer);
+uint32_t mapGet(map_t *m, char *string);
 
 /*
  * Functions used for setting bits at the given positon
@@ -188,7 +193,7 @@ void mapDestroy(map_t *m) {
  * Function creates new element with given int value and string representation
  * and insert new element to the head of the map structure
  */
-void mapPut(map_t *m, char *string, int integer) {
+void mapPut(map_t *m, char *string, uint32_t integer) {
     map_e *elem = mapAllocElem();
     elem->string = malloc((strlen(string) + 1) * sizeof(char));
     if (elem->string == NULL) {
@@ -204,7 +209,7 @@ void mapPut(map_t *m, char *string, int integer) {
 /*
  * Function returns the value in the map structure related with input string
  */
-int mapGet(map_t *m, char *string) {
+uint32_t mapGet(map_t *m, char *string) {
     map_e *elem = m->head;
     while (strcmp(elem->string, string)) {
         if (elem->next == NULL) {
@@ -229,7 +234,7 @@ uint32_t setBit(uint32_t ins, int pos) {
  * depending on the given value and return modified instruction
  */
 uint32_t setBits(uint32_t ins, uint32_t val, int pos) {
-    return ins | (val << pos);
+    return ins | val << pos;
 }
 
 /*
@@ -521,45 +526,21 @@ void freeTokens(char **tokens) {
 void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
         map_t *condMap) {
     uint32_t ins = 0;
-
     /*
-     * strcmp returns 0 if there's a match, 1 if no match
-     * 0 is false, hence !0 indicates there's a match
-     * trying to work out what cond should be
+     * work out what cond should be
      */
-    char *condStr = tokens[0];
-    condStr += 1;
-    uint32_t cond = mapGet(condMap, condStr);
-
+    uint32_t cond = mapGet(condMap, tokens[0] + 1);
+    ins = setBits(ins, cond, COND_POS);
     /*
-     *for bits 27-24
+     * for bits 27-24
      */
-    uint32_t constant = 0xa;
-
+    ins = setBits(ins, 0xa, BRANCH_CONST_POS);
     /*
-     *calculate the offset
+     * calculate the offset
      */
-    uint32_t next_addr = mapGet(labelMap, tokens[1]);
-    int32_t offset = next_addr - (address + 8);
-
-    offset >>= 2;
-
-    /*
-     * Set condition
-     */
-    ins = ins | cond << 28;
-
-    /*
-     * Set constant
-     */
-    ins = ins | constant << 24;
-
-    /*
-     * Set offset (make it 24bit)
-     */
-    offset &= 0xffffff;
-
-    ins = ins | offset;
+    uint32_t lableAddress = mapGet(labelMap, tokens[1]);
+    uint32_t offset = ((lableAddress - (address + 8)) << 6) >> 8;
+    ins = setBits(ins, offset, BRANCH_OFFEST_POS);
 
     storeWord(memory, address, ins);
 }
