@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <err.h>
 #include <string.h>
 #include <assert.h>
-#include <endian.h>
 
 /*
  * CONSTANTS:
@@ -13,6 +11,7 @@
  */
 #define MEMORY_SIZE 65536
 #define MAX_LINE_LENGTH 512
+#define MAX_TOKEN_LENGTH 10
 #define BITS_IN_BYTE 8
 #define BYTES_IN_WORD 4
 #define INT_BASE 10
@@ -102,14 +101,16 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength);
 /*
  *
  */
-int isLabel(char *buf);
 map_t initOpcodeMap(void);
 map_t initCondMap(void);
 map_t initShiftMap(void);
 map_t initRoutingMap(void);
 void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
 
+void preprocessLine(char *buf);
+int isLabel(char *buf);
 char **tokenizer(char *buf);
+void freeTokens(char **tokens);
 
 /*
  * Functions representing subsets of ARM instruction set
@@ -137,7 +138,6 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue);
  */
 
 int main(int argc, char **argv) {
-
     if (argc < 3) {
         printf("Input file and/or output file not specified.\n");
         exit(EXIT_FAILURE);
@@ -207,6 +207,10 @@ void mapPut(map_t *m, char *string, int integer) {
 int mapGet(map_t *m, char *string) {
     map_e *elem = m->head;
     while (strcmp(elem->string, string)) {
+        if (elem->next == NULL) {
+            printf("%s not found", string);
+            exit(EXIT_FAILURE);
+        }
         elem = elem->next;
     }
     return elem->integer;
@@ -242,9 +246,7 @@ uint32_t assembly(char **argv, uint8_t *memory) {
     mapInit(&labelMap);
 
     uint32_t programLength = firstPass(fp, &labelMap);
-    fclose(fp);
-    fp = fopen(argv[1], "r"); //TODO HACKY FIND BETTER WAY
-
+    rewind(fp);
     uint32_t totalLength = secondPass(fp, &labelMap, programLength, memory);
 
     mapDestroy(&labelMap);
@@ -262,17 +264,14 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if (isLabel(buf)) {
-            buf[strlen(buf) - 2] = '\0';
-            mapPut(labelMap, buf, address);
-        } else {
-            /*
-             * Ignore empty spaces and lines in the code
-             */
-            if (strcmp("", buf) && strcmp("\n", buf)) {
+        preprocessLine(buf);
+        if (strlen(buf) != 0) {
+            if (isLabel(buf)) {
+                buf[strlen(buf) - 1] = '\0';
+                mapPut(labelMap, buf, address);
+            } else {
                 address += BYTES_IN_WORD;
             }
-
         }
     }
     return address;
@@ -292,21 +291,17 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     map_t condMap = initCondMap();
     map_t shiftMap = initShiftMap();
     map_t routingMap = initRoutingMap();
-    uint32_t address = 0;
 
+    uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
     /*
      * Split code to the lines ignoring labels
      */
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if (!isLabel(buf)) {
+        preprocessLine(buf);
+        if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
-            if (tokens[0] == NULL) {
-                free(tokens);
-                continue;
-            }
             int route = mapGet(&routingMap, tokens[0]);
-
             /*
              * Choose instruction set depending on the route value
              */
@@ -327,11 +322,10 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
                     branch(tokens, memory, address, labelMap, &condMap);
                     break;
                 default:
-                    printf("Unsupported opcode \n");
+                    printf("Unsupported opcode.\n");
                     break;
             }
-
-            free(tokens);
+            freeTokens(tokens);
             address += BYTES_IN_WORD;
         }
     }
@@ -339,6 +333,7 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
     mapDestroy(&opcodeMap);
     mapDestroy(&condMap);
     mapDestroy(&shiftMap);
+    mapDestroy(&routingMap);
 
     return programLength;
 }
@@ -358,13 +353,6 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
     }
 
     fclose(fp);
-}
-
-/*
- * Function returns 1 if the given line of the code includes label
- */
-int isLabel(char *buf) {
-    return buf[strlen(buf) - 2] == ':';
 }
 
 /*
@@ -464,37 +452,70 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
     }
 }
 
+void preprocessLine(char *buf) {
+    buf[strlen(buf) - 1] = '\0';
+    for (int i = 0; buf[i] != '\0'; i++) {
+        if (buf[i] == ';') {
+            buf[i] = '\0';
+            break;
+        }
+    }
+    if (strlen(buf) != 0) {
+        for (int i = strlen(buf) - 1; i >= 0; i--) {
+            if (buf[i] == ' ') {
+                buf[i] = '\0';
+            } else {
+                break;
+            }
+        }
+    }
+    while (buf[0] == ' ') {
+        for (int i = 0; buf[i] != '\0'; i++) {
+            buf[i] = buf[i + 1];
+        }
+    }
+}
+
+/*
+ * Function returns 1 if the given line of the code includes label
+ */
+int isLabel(char *buf) {
+    return buf[strlen(buf) - 1] == ':';
+}
+
 /*
  * Function returns lines of code split to the tokens
  */
 char **tokenizer(char *buf) {
-    char **tokens = malloc(sizeof(char *) * 10);
-    memset(tokens, 0, sizeof(char *) * 10);
+    char **tokens = malloc(sizeof(char *) * MAX_TOKEN_LENGTH);
     if (tokens == NULL) {
         perror("tokenizer");
         exit(EXIT_FAILURE);
     }
     char copy[MAX_LINE_LENGTH];
     strcpy(copy, buf);
-    char *token = strtok(buf, " \n");
-    int i = 0;
-    while (token != NULL) {
-        /*
-         * Ignore coments
-         * TODO: implement case for lines starting with comment
-         */
-        if (token[0] == ';') {
-            return tokens;
+    char *token = strtok(copy, " ");
+    for (int i = 0; i < MAX_TOKEN_LENGTH; i++) {
+        if (token != NULL) {
+            tokens[i] = malloc((strlen(token) + 1) * sizeof(char));
+            strcpy(tokens[i], token);
+            token = strtok(NULL, " ,");
+        } else {
+            tokens[i] = NULL;
         }
-        /*
-         * Ignore spaces and empty lines
-         */
-        tokens[i] = token;
-        token = strtok(NULL, " ,\n");
-        i++;
-
     }
     return tokens;
+}
+
+void freeTokens(char **tokens) {
+    if (tokens != NULL) {
+        for (int i = 0; i < MAX_TOKEN_LENGTH; i++) {
+            if (tokens[i] != NULL) {
+            free(tokens[i]);
+            }
+        }
+        free(tokens);
+    }
 }
 
 void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
@@ -659,7 +680,7 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
              * Get string representing shifting type
              */
             strncpy(shiftType, from, 3);
-            shiftType[4] = '\0';
+            shiftType[3] = '\0';
             /*
              * Get value for shifting and represent it in the instruction
              */
@@ -736,7 +757,11 @@ uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
          * and uses its address with pc register to represent base register
          * and calculated offset
          */
-        tokens[2] = "[r15]";
+        if (tokens[2] == NULL) {
+            tokens[2] = malloc(sizeof(char) * 51);
+        }
+        strcpy(tokens[2], "[r15]");
+//        tokens[2] = "[r15]";
         int offset = *endProgramPtr - address - 8;
         char stringOffset[50]; //TODO find how big this needs to be
         sprintf(stringOffset, "%d", offset);
@@ -808,10 +833,26 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap) {
     if (!strcmp(tokens[0], "lsl")) {
-        tokens[3] = tokens[0];
-        tokens[4] = tokens[2];
-        tokens[0] = "mov";
-        tokens[2] = tokens[1];
+        if (tokens[5] == NULL) {
+            tokens[3] = malloc(sizeof(char) * 51);
+        }
+        strcpy(tokens[3], tokens[0]);
+        if (tokens[4] == NULL) {
+            tokens[4] = malloc(sizeof(char) * 51);
+        }
+        strcpy(tokens[4], tokens[2]);
+        if (tokens[0] == NULL) {
+            tokens[0] = malloc(sizeof(char) * 51);
+        }
+        strcpy(tokens[0], "mov");
+        if (tokens[2] == NULL) {
+            tokens[2] = malloc(sizeof(char) * 51);
+        }
+        strcpy(tokens[2], tokens[1]);
+//        tokens[3] = tokens[0];
+//        tokens[4] = tokens[2];
+//        tokens[0] = "mov";
+//        tokens[2] = tokens[1];
     }
     uint32_t ins = 0;
     ins |= 0xe << COND_POS;
