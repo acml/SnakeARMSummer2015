@@ -405,6 +405,14 @@ map_t initCondMap(void) {
     mapInit(&condMap);
     mapPut(&condMap, "eq", 0x0);
     mapPut(&condMap, "ne", 0x1);
+    mapPut(&condMap, "cs", 0x2);
+    mapPut(&condMap, "cc", 0x3);
+    mapPut(&condMap, "mi", 0x4);
+    mapPut(&condMap, "pl", 0x5);
+    mapPut(&condMap, "vs", 0x6);
+    mapPut(&condMap, "vc", 0x7);
+    mapPut(&condMap, "hi", 0x8);
+    mapPut(&condMap, "ls", 0x9);
     mapPut(&condMap, "ge", 0xa);
     mapPut(&condMap, "lt", 0xb);
     mapPut(&condMap, "gt", 0xc);
