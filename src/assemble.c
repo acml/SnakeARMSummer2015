@@ -16,8 +16,8 @@
 #define BYTES_IN_WORD 4
 
 #define PC_AHEAD_BYTES 8
-#define BRANCH_CONST_POS 24
-#define BRANCH_OFFEST_POS 0
+#define BRANCH_CONST_POS 25
+#define BRANCH_OFFSET_POS 0
 
 /*
  * Constants for representing specific bits positions
@@ -39,6 +39,8 @@
 /*
  * Constants register and address positions in single data transfer instructions
  */
+#define SINGLE_DATA_TRANSFER_CONST_POS 26
+#define MAX_OFFSET_LENGTH 7
 #define COND_POS 28
 #define OPCODE_POS 21
 #define RN_POS 16
@@ -72,6 +74,14 @@ typedef struct map {
     map_e *head;
 } map_t;
 
+typedef struct assemble_maps {
+    map_t typeMap;
+    map_t condMap;
+    map_t opcodeMap;
+    map_t shiftMap;
+    map_t labelMap;
+} maps_t;
+
 /*
  * FUNCTIONS:
  *
@@ -89,18 +99,20 @@ uint32_t mapGet(map_t *m, char *string);
  */
 uint32_t assembly(char **argv, uint8_t *memory);
 uint32_t firstPass(FILE *fp, map_t *labelMap);
-uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
-        uint8_t *memory);
-void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength);
+uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
+        uint32_t programLength);
+void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
+void writeBinary(char **argv, uint8_t *memory, uint32_t memoryLength);
 
 /*
  *
  */
-map_t initOpcodeMap(void);
+maps_t initMaps(void);
+void destroyMaps(maps_t maps);
 map_t initCondMap(void);
+map_t initOpcodeMap(void);
 map_t initShiftMap(void);
-map_t initRoutingMap(void);
-void storeWord(uint8_t *memory, uint32_t address, uint32_t word);
+map_t initTypeMap(void);
 
 void preprocessLine(char *buf);
 int isLabel(char *buf);
@@ -110,20 +122,17 @@ void freeTokens(char **tokens);
 /*
  * Functions representing subsets of ARM instruction set
  */
-void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
-        map_t *condMap);
-void multiply(char **tokens, uint8_t *memory, uint32_t address);
-void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *shiftMap, uint32_t *endProgramPtr);
-void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *opcodeMap, map_t *shiftMap);
+uint32_t dataProcessing(char **tokens, maps_t maps);
+uint32_t multiply(char **tokens, maps_t maps);
+uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
+        uint32_t address, uint32_t *memoryLength);
+uint32_t branch(char **tokens, maps_t maps, uint32_t address);
+
+uint32_t getCond(char **tokens, map_t condMap);
 
 /*
  * Single data transfer helper functions
  */
-uint32_t setIndexing(char **tokens, uint32_t ins);
-uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
-        uint8_t *memory, uint32_t address);
 uint32_t setRnValue(char **tokens, uint32_t ins);
 uint32_t setShiftType(uint32_t ins, char *shiftType);
 uint32_t setShiftValue(uint32_t ins, char* shiftValue);
@@ -145,8 +154,8 @@ int main(int argc, char **argv) {
     }
     memset(memory, 0, MEMORY_SIZE);
 
-    uint32_t totalLength = assembly(argv, memory);
-    writeBinary(argv, memory, totalLength);
+    uint32_t memoryLength = assembly(argv, memory);
+    writeBinary(argv, memory, memoryLength);
 
     free(memory);
     return 0;
@@ -221,17 +230,14 @@ uint32_t assembly(char **argv, uint8_t *memory) {
         exit(EXIT_FAILURE);
     }
 
-    map_t labelMap;
-    mapInit(&labelMap);
-
-    uint32_t programLength = firstPass(fp, &labelMap);
+    maps_t maps = initMaps();
+    uint32_t programLength = firstPass(fp, &maps.labelMap);
     rewind(fp);
-    uint32_t totalLength = secondPass(fp, &labelMap, programLength, memory);
-
-    mapDestroy(&labelMap);
+    uint32_t memoryLength = secondPass(fp, maps, memory, programLength);
+    destroyMaps(maps);
 
     fclose(fp);
-    return totalLength;
+    return memoryLength;
 }
 
 /*
@@ -261,16 +267,8 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
  * and calling given instruction set. After encoding it destroys map structures
  * and returns length of the program.
  */
-uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
-        uint8_t *memory) {
-    /*
-     * Initialization of map_t structures
-     */
-    map_t opcodeMap = initOpcodeMap();
-    map_t condMap = initCondMap();
-    map_t shiftMap = initShiftMap();
-    map_t routingMap = initRoutingMap();
-
+uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
+        uint32_t programLength) {
     uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
     /*
@@ -280,39 +278,35 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
         preprocessLine(buf);
         if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
-            int route = mapGet(&routingMap, tokens[0]);
+            int route = mapGet(&maps.typeMap, tokens[0]);
             /*
              * Choose instruction set depending on the route value
              */
             //TODO add a fancy enum
+            uint32_t ins = 0;
             switch (route) {
                 case 0:
-                    dataProcessing(tokens, memory, address, &opcodeMap,
-                            &shiftMap);
+                    ins = dataProcessing(tokens, maps);
                     break;
                 case 1:
-                    multiply(tokens, memory, address);
+                    ins = multiply(tokens, maps);
                     break;
                 case 2:
-                    sDataTrans(tokens, memory, address, &shiftMap,
+                    ins = singleDataTransfer(tokens, maps, memory, address,
                             &programLength);
                     break;
                 case 3:
-                    branch(tokens, memory, address, labelMap, &condMap);
+                    ins = branch(tokens, maps, address);
                     break;
                 default:
-                    printf("Unsupported opcode.\n");
+                    printf("Unsupported instructions type.\n");
                     break;
             }
+            storeWord(memory, address, ins);
             freeTokens(tokens);
             address += BYTES_IN_WORD;
         }
     }
-
-    mapDestroy(&opcodeMap);
-    mapDestroy(&condMap);
-    mapDestroy(&shiftMap);
-    mapDestroy(&routingMap);
 
     return programLength;
 }
@@ -320,56 +314,91 @@ uint32_t secondPass(FILE *fp, map_t *labelMap, uint32_t programLength,
 /*
  * Function writes memory positions and related data from the given file
  */
-void writeBinary(char **argv, uint8_t *memory, uint32_t totalLength) {
+void writeBinary(char **argv, uint8_t *memory, uint32_t memoryLength) {
     FILE *fp = fopen(argv[2], "wb");
     if (fp == NULL) {
         printf("Could not open output file.\n");
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < totalLength; i++) {
+    for (int i = 0; i < memoryLength; i++) {
         fwrite(&memory[i], sizeof(uint8_t), 1, fp);
     }
 
     fclose(fp);
 }
 
+maps_t initMaps(void) {
+    maps_t maps;
+    maps.typeMap = initTypeMap();
+    maps.condMap = initCondMap();
+    maps.opcodeMap = initOpcodeMap();
+    maps.shiftMap = initShiftMap();
+    mapInit(&maps.labelMap);
+    return maps;
+}
+
+void destroyMaps(maps_t maps) {
+    mapDestroy(&maps.typeMap);
+    mapDestroy(&maps.condMap);
+    mapDestroy(&maps.opcodeMap);
+    mapDestroy(&maps.shiftMap);
+    mapDestroy(&maps.labelMap);
+}
+
 /*
  * TODO:
  */
-map_t initRoutingMap(void) {
-    map_t routingMap;
-    mapInit(&routingMap);
-    mapPut(&routingMap, "and", 0);
-    mapPut(&routingMap, "eor", 0);
-    mapPut(&routingMap, "sub", 0);
-    mapPut(&routingMap, "rsb", 0);
-    mapPut(&routingMap, "add", 0);
-    mapPut(&routingMap, "orr", 0);
-    mapPut(&routingMap, "mov", 0);
-    mapPut(&routingMap, "tst", 0);
-    mapPut(&routingMap, "teq", 0);
-    mapPut(&routingMap, "cmp", 0);
+map_t initTypeMap(void) {
+    map_t typeMap;
+    mapInit(&typeMap);
+    mapPut(&typeMap, "and", 0);
+    mapPut(&typeMap, "eor", 0);
+    mapPut(&typeMap, "sub", 0);
+    mapPut(&typeMap, "rsb", 0);
+    mapPut(&typeMap, "add", 0);
+    mapPut(&typeMap, "orr", 0);
+    mapPut(&typeMap, "mov", 0);
+    mapPut(&typeMap, "tst", 0);
+    mapPut(&typeMap, "teq", 0);
+    mapPut(&typeMap, "cmp", 0);
 
-    mapPut(&routingMap, "mul", 1);
-    mapPut(&routingMap, "mla", 1);
+    mapPut(&typeMap, "mul", 1);
+    mapPut(&typeMap, "mla", 1);
 
-    mapPut(&routingMap, "ldr", 2);
-    mapPut(&routingMap, "str", 2);
+    mapPut(&typeMap, "ldr", 2);
+    mapPut(&typeMap, "str", 2);
 
-    mapPut(&routingMap, "b", 3);
-    mapPut(&routingMap, "ble", 3);
-    mapPut(&routingMap, "bgt", 3);
-    mapPut(&routingMap, "blt", 3);
-    mapPut(&routingMap, "bge", 3);
-    mapPut(&routingMap, "bne", 3);
-    mapPut(&routingMap, "beq", 3);
+    mapPut(&typeMap, "b", 3);
+    mapPut(&typeMap, "ble", 3);
+    mapPut(&typeMap, "bgt", 3);
+    mapPut(&typeMap, "blt", 3);
+    mapPut(&typeMap, "bge", 3);
+    mapPut(&typeMap, "bne", 3);
+    mapPut(&typeMap, "beq", 3);
 
-    mapPut(&routingMap, "lsl", 0);
-    mapPut(&routingMap, "andeq", 0);
+    mapPut(&typeMap, "lsl", 0);
+    mapPut(&typeMap, "andeq", 0);
 
-    return routingMap;
+    return typeMap;
 
+}
+
+/*
+ * TODO:
+ */
+map_t initCondMap(void) {
+    map_t condMap;
+    mapInit(&condMap);
+    mapPut(&condMap, "eq", 0x0);
+    mapPut(&condMap, "ne", 0x1);
+    mapPut(&condMap, "ge", 0xa);
+    mapPut(&condMap, "lt", 0xb);
+    mapPut(&condMap, "gt", 0xc);
+    mapPut(&condMap, "le", 0xd);
+    mapPut(&condMap, "al", 0xe);
+    mapPut(&condMap, "", 0xe);
+    return condMap;
 }
 
 /*
@@ -389,23 +418,6 @@ map_t initOpcodeMap(void) {
     mapPut(&opcodeMap, "teq", 0x9);
     mapPut(&opcodeMap, "cmp", 0xa);
     return opcodeMap;
-}
-
-/*
- * TODO:
- */
-map_t initCondMap(void) {
-    map_t condMap;
-    mapInit(&condMap);
-    mapPut(&condMap, "eq", 0x0);
-    mapPut(&condMap, "ne", 0x1);
-    mapPut(&condMap, "ge", 0xa);
-    mapPut(&condMap, "lt", 0xb);
-    mapPut(&condMap, "gt", 0xc);
-    mapPut(&condMap, "le", 0xd);
-    mapPut(&condMap, "al", 0xe);
-    mapPut(&condMap, "", 0xe);
-    return condMap;
 }
 
 /*
@@ -497,32 +509,30 @@ void freeTokens(char **tokens) {
     }
 }
 
-void branch(char **tokens, uint8_t *memory, uint32_t address, map_t *labelMap,
-        map_t *condMap) {
+uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     uint32_t ins = 0;
     /*
      * work out what cond should be
      */
-    uint32_t cond = mapGet(condMap, tokens[0] + 1);
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
-    /*
-     * for bits 27-24
-     */
-    ins |= 0xa << BRANCH_CONST_POS;
     /*
      * calculate the offset
      */
-    uint32_t lableAddress = mapGet(labelMap, tokens[1]);
-    uint32_t offset = ((lableAddress - (address + 8)) << 6) >> 8;
-    ins |= offset << BRANCH_OFFEST_POS;
-
-    storeWord(memory, address, ins);
+    uint32_t lableAddress = mapGet(&maps.labelMap, tokens[1]);
+    uint32_t offset = ((lableAddress - address - PC_AHEAD_BYTES) << 6) >> 8;
+    ins |= offset << BRANCH_OFFSET_POS;
+    /*
+     * for bits 27-24
+     */
+    ins |= 0x5 << BRANCH_CONST_POS;
+    return ins;
 }
 
-void multiply(char **tokens, uint8_t *memory, uint32_t address) {
+uint32_t multiply(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    int cond = 0xe;
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
     /*
      * In case of mla function: set bit A and Rn register
@@ -546,47 +556,55 @@ void multiply(char **tokens, uint8_t *memory, uint32_t address) {
      * Set constant value 9 starting at position 4
      */
     ins |= 0x9 << MULTIPLY_CONST_POS;
-
-    storeWord(memory, address, ins);
+    return ins;
 }
 
-void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *shiftMap, uint32_t *endProgramPtr) {
+uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
+        uint32_t address, uint32_t *memoryLength) {
+    /*
+     * Put value of expression to the end of assembled program
+     * and uses its address with pc register to represent base register
+     * and calculated offset
+     */
+    if (tokens[2][0] == '=') {
+        uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
+        if (immValue <= 0xff) {
+            tokens[0][0] = 'm';
+            tokens[0][1] = 'o';
+            tokens[0][2] = 'v';
+            tokens[2][0] = '#';
+            return dataProcessing(tokens, maps);
+        } else {
+            storeWord(memory, *memoryLength, immValue);
+            uint32_t offset = *memoryLength - address - PC_AHEAD_BYTES;
+            *memoryLength += BYTES_IN_WORD;
+            free(tokens[2]);
+            tokens[2] = malloc((strlen("[r15") + 1) * sizeof(char));
+            strcpy(tokens[2], "[r15");
+            tokens[3] = malloc(MAX_OFFSET_LENGTH * sizeof(char));
+            sprintf(tokens[3], "#%d]", offset);
+        }
+    }
     uint32_t ins = 0;
 
+    uint32_t cond = getCond(tokens, maps.condMap);
+    ins |= cond << COND_POS;
     /*
-     * Set pre/postIndexing bit
+     * Set type if the instruction
      */
-    ins = setIndexing(tokens, ins);
-
+    if (!strcmp(tokens[0], "ldr")) {
+        ins |= 1 << L_BIT;
+    }
     /*
      * Set Rd value
      */
     int rd = strtol(tokens[1] + 1, NULL, 0);
     ins |= rd << RD_POS;
-    ins |= 0x1 << 26; //TODO make in const
-
     /*
-     * Set type if the instruction
+     * Set pre/postIndexing bit
      */
-    int isLoad = 0;
-    if (!strcmp(tokens[0], "ldr")) {
-        ins |= 1 << L_BIT;
-        isLoad = 1;
-    }
-
-    // address as a numeric constant form
-    /*
-     * Address is represented as a numeric constant form
-     */
-    if (isLoad == 1) {
-        //Immediate value expression
-        /*
-         * Operand2 represented by immediate value
-         */
-        if (tokens[2][0] == '=') {
-            ins = setImmValue(ins, tokens, endProgramPtr, memory, address);
-        }
+    if (tokens[2][strlen(tokens[2] - 1)] != ']' || tokens[3] == NULL) {
+        ins |= 1 << P_BIT;
     }
 
     int setU = 1;
@@ -652,80 +670,9 @@ void sDataTrans(char **tokens, uint8_t *memory, uint32_t address,
     ins |= setU << U_BIT;
     ins |= rm << RM_POS;
     ins |= 0 << 5;
-    storeWord(memory, address, ins);
 
-}
-
-/*
- * Set the bit P if given tokens represent preindexing
- * and return updated instruction
- */
-uint32_t setIndexing(char **tokens, uint32_t ins) {
-    int postIndexing = 0;
-    int i = 0;
-
-    /*
-     * Check if closing bracket is in tokens[2]
-     */
-    while (postIndexing == 0 && tokens[2][i] != '\0') {
-        if (tokens[2][i] == ']') {
-            postIndexing = 1;
-        }
-        i++;
-    }
-    /*
-     * Set preindexing when bracket is in different token
-     * or if there is not another token representing expresion
-     */
-    if (!postIndexing || tokens[3] == NULL) {
-        ins |= 1 << P_BIT;
-    }
+    ins |= 0x1 << SINGLE_DATA_TRANSFER_CONST_POS;
     return ins;
-}
-
-/*
- * Return updated instruction depending on the representation of immediate value
- */
-uint32_t setImmValue(uint32_t ins, char **tokens, uint32_t *endProgramPtr,
-        uint8_t *memory, uint32_t address) {
-
-    uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
-
-    /*
-     * Do mov function when immValue is smaller than const value 0xFF
-     */
-    if (immValue <= 0xff) {
-        ins |= 1 << I_BIT;
-        ins |= 0xd << OPCODE_POS;
-        ins |= immValue << OFFSET_POS;
-        ins = ins & 0xfbefffff; //Unset LBIT and bit 26
-        return ins;
-    } else {
-        storeWord(memory, *endProgramPtr, immValue);
-
-        //TODO quite hacky, maybe rewrite
-        //Alter tokens so it works
-        /*
-         * Put value of expression to the end of assembled program
-         * and uses its address with pc register to represent base register
-         * and calculated offset
-         */
-        if (tokens[2] == NULL) {
-            tokens[2] = malloc(sizeof(char) * 51);
-        }
-        strcpy(tokens[2], "[r15]");
-//        tokens[2] = "[r15]";
-        int offset = *endProgramPtr - address - 8;
-        char stringOffset[50]; //TODO find how big this needs to be
-        sprintf(stringOffset, "%d", offset);
-        char* buf = (char*) malloc(sizeof(char) * 51);
-
-        strcat(buf, "#");
-        strcat(buf, stringOffset);
-        *endProgramPtr += 4;
-        tokens[3] = buf;
-        return ins;
-    }
 }
 
 /*
@@ -783,14 +730,12 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
     return ins;
 }
 
-void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
-        map_t *opcodeMap, map_t *shiftMap) {
+uint32_t dataProcessing(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    if (!strcmp(tokens[0], "andeq")) {
-        storeWord(memory, address, ins);
-        return;
-    }
+    uint32_t cond = getCond(tokens, maps.condMap);
+    ins |= cond << COND_POS;
+
     if (!strcmp(tokens[0], "lsl")) {
         tokens[4] = tokens[2];
         tokens[3] = tokens[0];
@@ -800,9 +745,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         strcpy(tokens[2], tokens[1]);
     }
 
-    ins |= 0xe << COND_POS;
-
-    uint32_t opcode = mapGet(opcodeMap, tokens[0]);
+    uint32_t opcode = mapGet(&maps.opcodeMap, tokens[0]);
     ins |= opcode << OPCODE_POS;
 
     int isS = 0;
@@ -813,26 +756,17 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
     if (!strcmp(tokens[0], "mov")) {
         rn = 0;
         op2 = 2;
-    } else if (!strcmp(tokens[0], "tst")) {
-        rn = rd;
-        rd = 0;
-        isS = 1;
-        op2 = 2;
-    } else if (!strcmp(tokens[0], "teq")) {
-        rn = rd;
-        rd = 0;
-        isS = 1;
-        op2 = 2;
-    } else if (!strcmp(tokens[0], "cmp")) {
+    } else if (!strcmp(tokens[0], "tst") || !strcmp(tokens[0], "teq")
+            || !strcmp(tokens[0], "cmp")) {
         rn = rd;
         rd = 0;
         isS = 1;
         op2 = 2;
     }
-
     ins |= rd << RD_POS;
     ins |= rn << RN_POS;
     ins |= isS << S_BIT;
+
     if (tokens[op2][0] == '#') {
         uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
         uint32_t shiftValue = 0;
@@ -858,7 +792,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
         if (tokens[op2 + 1] != NULL) {
-            uint32_t shift = mapGet(shiftMap, tokens[op2 + 1]);
+            uint32_t shift = mapGet(&maps.shiftMap, tokens[op2 + 1]);
             ins |= shift << SHIFT_TYPE_POS;
             if (tokens[op2 + 2] != NULL) {
                 if (tokens[op2 + 2][0] == '#') {
@@ -872,5 +806,15 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
             }
         }
     }
-    storeWord(memory, address, ins);
+    return ins;
+}
+
+uint32_t getCond(char **tokens, map_t condMap) {
+    int offset = 3;
+    if (tokens[0][0] == 'b') {
+        offset = 1;
+    }
+    uint32_t cond = mapGet(&condMap, tokens[0] + offset);
+    tokens[0][offset] = '\0';
+    return cond;
 }
