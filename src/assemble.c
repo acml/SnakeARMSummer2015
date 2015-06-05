@@ -469,7 +469,7 @@ void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
 void preprocessLine(char *buf) {
     buf[strlen(buf) - 1] = '\0';
     for (int i = 0; buf[i] != '\0'; i++) {
-        if (buf[i] == ';') {
+        if (buf[i] == ';' || buf[i] == '/' || buf[i] == '*') {
             buf[i] = '\0';
             break;
         }
