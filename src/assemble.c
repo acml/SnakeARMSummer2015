@@ -18,6 +18,7 @@
 #define PC_AHEAD_BYTES 8
 #define BRANCH_CONST_POS 25
 #define BRANCH_OFFSET_POS 0
+#define BRANCH_L_BIT 24
 
 /*
  * Constants for representing specific bits positions
@@ -387,6 +388,7 @@ map_t initTypeMap(void) {
     mapPut(&typeMap, "str", 2);
 
     mapPut(&typeMap, "b", 3);
+    mapPut(&typeMap, "bl", 3);
 
 //############~Exetension~############
     mapPut(&typeMap, "bx", 4);
@@ -538,6 +540,10 @@ uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
      */
     uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
+
+    if (tokens[0][1] == 'l') {
+        ins |= 1 << BRANCH_L_BIT;
+    }
     /*
      * calculate the offset
      */
@@ -766,7 +772,8 @@ uint32_t getCond(char **tokens, map_t condMap) {
 int getTypeLength(char **tokens) {
     int typeLength = 3;
     if (tokens[0][0] == 'b') {
-        if (tokens[0][1] == 'x') {
+        if (tokens[0][1] == 'x'
+                || (tokens[0][1] == 'l' && strlen(tokens[0]) != 3)) {
             typeLength = 2;
         } else {
             typeLength = 1;
