@@ -490,7 +490,7 @@ void freeTokens(char **tokens) {
     if (tokens != NULL) {
         for (int i = 0; i < MAX_TOKEN_LENGTH; i++) {
             if (tokens[i] != NULL) {
-            free(tokens[i]);
+                free(tokens[i]);
             }
         }
         free(tokens);
@@ -785,87 +785,52 @@ uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
 
 void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
         map_t *opcodeMap, map_t *shiftMap) {
-    if (!strcmp(tokens[0], "lsl")) {
-        if (tokens[5] == NULL) {
-            tokens[3] = malloc(sizeof(char) * 51);
-        }
-        strcpy(tokens[3], tokens[0]);
-        if (tokens[4] == NULL) {
-            tokens[4] = malloc(sizeof(char) * 51);
-        }
-        strcpy(tokens[4], tokens[2]);
-        if (tokens[0] == NULL) {
-            tokens[0] = malloc(sizeof(char) * 51);
-        }
-        strcpy(tokens[0], "mov");
-        if (tokens[2] == NULL) {
-            tokens[2] = malloc(sizeof(char) * 51);
-        }
-        strcpy(tokens[2], tokens[1]);
-//        tokens[3] = tokens[0];
-//        tokens[4] = tokens[2];
-//        tokens[0] = "mov";
-//        tokens[2] = tokens[1];
-    }
     uint32_t ins = 0;
+
+    if (!strcmp(tokens[0], "andeq")) {
+        storeWord(memory, address, ins);
+        return;
+    }
+    if (!strcmp(tokens[0], "lsl")) {
+        tokens[4] = tokens[2];
+        tokens[3] = tokens[0];
+        tokens[0] = malloc((strlen("mov") + 1) * sizeof(char));
+        strcpy(tokens[0], "mov");
+        tokens[2] = malloc((strlen(tokens[1]) + 1) * sizeof(char));
+        strcpy(tokens[2], tokens[1]);
+    }
+
     ins |= 0xe << COND_POS;
-    uint32_t opcode = 0;
-    uint32_t rd = 0;
-    uint32_t rn = 0;
+
+    uint32_t opcode = mapGet(opcodeMap, tokens[0]);
+    ins |= opcode << OPCODE_POS;
+
     int isS = 0;
     int op2 = 3;
+    uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
+    uint32_t rn = strtol(tokens[2] + 1, NULL, 0);
 
-    if (!strcmp(tokens[0], "and")) {
-        opcode = 0x0;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "eor")) {
-        opcode = 0x1;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "sub")) {
-        opcode = 0x2;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "rsb")) {
-        opcode = 0x3;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "add")) {
-        opcode = 0x4;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "orr")) {
-        opcode = 0xc;
-        rd = strtol(tokens[1] + 1, NULL, 0);
-        rn = strtol(tokens[2] + 1, NULL, 0);
-    } else if (!strcmp(tokens[0], "mov")) {
-        opcode = 0xd;
-        rd = strtol(tokens[1] + 1, NULL, 0);
+    if (!strcmp(tokens[0], "mov")) {
+        rn = 0;
         op2 = 2;
     } else if (!strcmp(tokens[0], "tst")) {
-        opcode = 0x8;
-        rn = strtol(tokens[1] + 1, NULL, 0);
+        rn = rd;
+        rd = 0;
         isS = 1;
         op2 = 2;
     } else if (!strcmp(tokens[0], "teq")) {
-        opcode = 0x9;
-        rn = strtol(tokens[1] + 1, NULL, 10);
-        printf("%s \n", tokens[1] + 1);
+        rn = rd;
+        rd = 0;
         isS = 1;
         op2 = 2;
     } else if (!strcmp(tokens[0], "cmp")) {
-        opcode = 0xa;
-        rn = strtol(tokens[1] + 1, NULL, 0);
+        rn = rd;
+        rd = 0;
         isS = 1;
         op2 = 2;
-    } else if (!strcmp(tokens[0], "andeq")) {
-        storeWord(memory, address, 0x00000000);
-        return;
     }
-    ins |= opcode << OPCODE_POS;
-    ins |= rd << RD_POS;
 
+    ins |= rd << RD_POS;
     ins |= rn << RN_POS;
     ins |= isS << S_BIT;
     if (tokens[op2][0] == '#') {
@@ -892,17 +857,8 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
     } else {
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
-        uint32_t shift = 0;
         if (tokens[op2 + 1] != NULL) {
-            if (!strcmp(tokens[op2 + 1], "lsl")) {
-                shift = 0;
-            } else if (!strcmp(tokens[op2 + 1], "lsr")) {
-                shift = 1;
-            } else if (!strcmp(tokens[op2 + 1], "asr")) {
-                shift = 2;
-            } else if (!strcmp(tokens[op2 + 1], "ror")) {
-                shift = 3;
-            }
+            uint32_t shift = mapGet(shiftMap, tokens[op2 + 1]);
             ins |= shift << SHIFT_TYPE_POS;
             if (tokens[op2 + 2] != NULL) {
                 if (tokens[op2 + 2][0] == '#') {
@@ -911,7 +867,7 @@ void dataProcessing(char **tokens, uint8_t *memory, uint32_t address,
                 } else {
                     uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
                     ins |= rs << RS_POS;
-                    ins |=  0x1 << 4; // TODO make it a constant
+                    ins |= 1 << 4; // TODO make it a constant
                 }
             }
         }
