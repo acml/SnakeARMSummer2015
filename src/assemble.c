@@ -54,7 +54,9 @@
  */
 #define SHIFT_TYPE_POS 5
 #define SHIFT_VALUE_POS 7
+#define REG_SHIFT_CONST_POS 4
 #define IMM_ROTATE_POS 8
+#define IMM_VALUE_POS 0
 
 /*
  * STRUCTURES:
@@ -129,13 +131,6 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
 uint32_t branch(char **tokens, maps_t maps, uint32_t address);
 
 uint32_t getCond(char **tokens, map_t condMap);
-
-/*
- * Single data transfer helper functions
- */
-uint32_t setRnValue(char **tokens, uint32_t ins);
-uint32_t setShiftType(uint32_t ins, char *shiftType);
-uint32_t setShiftValue(uint32_t ins, char* shiftValue);
 
 /*
  * FUNCTION IMPLEMENTATION:
@@ -596,137 +591,66 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
         ins |= 1 << L_BIT;
     }
     /*
-     * Set Rd value
+     * Set Rd, Rn value
      */
-    int rd = strtol(tokens[1] + 1, NULL, 0);
+    uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
+    uint32_t rn = strtol(tokens[2] + 2, NULL, 0);
     ins |= rd << RD_POS;
+    ins |= rn << RN_POS;
     /*
      * Set pre/postIndexing bit
      */
-    if (tokens[2][strlen(tokens[2] - 1)] != ']' || tokens[3] == NULL) {
+    if (tokens[2][strlen(tokens[2]) - 1] != ']' || tokens[3] == NULL) {
         ins |= 1 << P_BIT;
     }
 
-    int setU = 1;
-    ins = setRnValue(tokens, ins);
-    int rm = 0;
-    int iBitValue = 0;
-
-    if (tokens[3] == NULL) {
-        /*
-         * Offset is not specified
-         */
-        ins |= 0 << OFFSET_POS;
-    } else if (tokens[3][0] == '#') {
-        /*
-         * Offset is represented by numerical value
-         */
-        int expValue = strtol(tokens[3] + 1, NULL, 0);
-
-        if (expValue < 0) {
-            ins |= -expValue << OFFSET_POS;
-            setU = 0;
-        } else {
-            ins |= expValue << OFFSET_POS;
-        }
-    } else {
-        /*
-         * Offset represented as a register
-         */
-        if (tokens[3][0] == 'r') {
-            rm = strtol(tokens[3] + 1, NULL, 0);
-        } else {
-            rm = strtol(tokens[3] + 2, NULL, 0);
-        }
-        if (tokens[3][0] != '-') {
-            setU = 1;
-        }
-        /*
-         * Register is shifted
-         */
-        if (tokens[4] != NULL) {
-            char *from = tokens[4];
-            char shiftType[4];
+    int isU = 1;
+    if (tokens[3] != NULL) {
+        if (tokens[3][0] == '#') {
             /*
-             * Get string representing shifting type
+             * Offset is represented by numerical value
              */
-            strncpy(shiftType, from, 3);
-            shiftType[3] = '\0';
+            int offset = strtol(tokens[3] + 1, NULL, 0);
+            if (offset < 0) {
+                offset = -offset;
+                isU = 0;
+            }
+            ins |= (uint32_t) offset << OFFSET_POS;
+        } else {
+            ins |= 1 << I_BIT;
             /*
-             * Get value for shifting and represent it in the instruction
+             * Offset represented as a register
              */
-            char *shiftValue = strdup(from + 4);
-            ins = setShiftType(ins, shiftType);
-            ins = setShiftValue(ins, shiftValue);
+            if (tokens[3][0] == '-') {
+                isU = 0;
+            }
+            uint32_t rm;
+            if (tokens[3][0] == 'r') {
+                rm = strtol(tokens[3] + 1, NULL, 0);
+            } else {
+                rm = strtol(tokens[3] + 2, NULL, 0);
+            }
+            ins |= rm << RM_POS;
+            /*
+             * Register is shifted
+             */
+            if (tokens[4] != NULL) {
+                uint32_t shift = mapGet(&maps.shiftMap, tokens[4]);
+                ins |= shift << SHIFT_TYPE_POS;
+                if (tokens[5][0] == '#') {
+                    uint32_t shiftValue = strtol(tokens[5] + 1, NULL, 0);
+                    ins |= shiftValue << SHIFT_VALUE_POS;
+                } else {
+                    uint32_t rs = strtol(tokens[5] + 1, NULL, 0);
+                    ins |= rs << RS_POS;
+                    ins |= 0x1 << REG_SHIFT_CONST_POS;
+                }
+            }
         }
-        iBitValue = 1;
-
     }
-    /*
-     * Set constant fields in the instruction
-     */
-    ins |= 0xe << COND_POS;
-    ins |= iBitValue << I_BIT;
-    ins |= setU << U_BIT;
-    ins |= rm << RM_POS;
-    ins |= 0 << 5;
+    ins |= isU << U_BIT;
 
     ins |= 0x1 << SINGLE_DATA_TRANSFER_CONST_POS;
-    return ins;
-}
-
-/*
- * Get value of Rn register and return updated instruction
- */
-uint32_t setRnValue(char **tokens, uint32_t ins) {
-    int rn = 0;
-    /*
-     * Ignore place of bracket and char 'r' to get value of register
-     */
-    rn = strtol(tokens[2] + 2, NULL, 0);
-
-    ins |= rn << RN_POS;
-    return ins;
-}
-
-/*
- * Represent string shiftType as a numeric value and return updated instruction
- * depending on the type of the shift
- */
-uint32_t setShiftType(uint32_t ins, char *shiftType) {
-    int shiftBits = 0;
-    if (!strcmp(shiftType, "lsl")) {
-        shiftBits = 0x0; //00
-    } else if (!strcmp(shiftType, "lsr")) {
-        shiftBits = 0x1; //01
-    } else if (!strcmp(shiftType, " asr")) {
-        shiftBits = 0x2; //10
-    } else if (!strcmp(shiftType, " ror")) {
-        shiftBits = 0x3; //11
-    }
-    ins |= shiftBits << 5;
-    return ins;
-}
-
-/*
- * Return updated instruction depending on the representation of shift value
- */
-uint32_t setShiftValue(uint32_t ins, char* shiftValue) {
-    /*
-     * Shift value is represented as a numeric value
-     */
-    if (shiftValue[0] == '#') {
-        int shiftInt = strtol(shiftValue + 1, NULL, 0);
-        assert(shiftInt < 16);
-        ins |= shiftInt << 7;
-    } else {
-        /*
-         * Shift value is represented as a register will set possition 4
-         */
-        int rs = strtol(shiftValue + 1, NULL, 0);
-        ins |= rs << 8;
-        ins |= 1 << 4;
-    }
     return ins;
 }
 
@@ -768,25 +692,23 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
     ins |= isS << S_BIT;
 
     if (tokens[op2][0] == '#') {
+        ins |= 1 << I_BIT;
         uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
-        uint32_t shiftValue = 0;
+        uint32_t immRotate = 0;
         int isRepresentable = 0;
-        while (!isRepresentable && shiftValue <= 30) {
+        while (!isRepresentable && immRotate <= 30) {
             if (immValue <= 0xFF) {
                 isRepresentable = 1;
             } else {
-                //Note for Yifan - I have changed the ror here to rol
                 immValue = (immValue << 2) | (immValue >> 30);
-                shiftValue += 2;
-
+                immRotate += 2;
             }
         }
         if (!isRepresentable) {
-            printf("Error: not representable");
+            printf("Error: numeric constant not representable.\n");
         } else {
-            ins |= 0x1 << I_BIT;
-            ins |= immValue;
-            ins |= (shiftValue / 2) << IMM_ROTATE_POS;
+            ins |= immValue << IMM_VALUE_POS;
+            ins |= (immRotate / 2) << IMM_ROTATE_POS;
         }
     } else {
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
@@ -794,15 +716,13 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
         if (tokens[op2 + 1] != NULL) {
             uint32_t shift = mapGet(&maps.shiftMap, tokens[op2 + 1]);
             ins |= shift << SHIFT_TYPE_POS;
-            if (tokens[op2 + 2] != NULL) {
-                if (tokens[op2 + 2][0] == '#') {
-                    uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                    ins |= shiftValue << SHIFT_VALUE_POS;
-                } else {
-                    uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                    ins |= rs << RS_POS;
-                    ins |= 1 << 4; // TODO make it a constant
-                }
+            if (tokens[op2 + 2][0] == '#') {
+                uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
+                ins |= shiftValue << SHIFT_VALUE_POS;
+            } else {
+                uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
+                ins |= rs << RS_POS;
+                ins |= 0x1 << REG_SHIFT_CONST_POS;
             }
         }
     }
