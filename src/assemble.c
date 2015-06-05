@@ -58,13 +58,10 @@
 #define IMM_ROTATE_POS 8
 #define IMM_VALUE_POS 0
 
-
-
 /*
  * Extension constants
  */
 #define BX_CONSTANT_POS 4
-
 
 /*
  * STRUCTURES:
@@ -138,8 +135,8 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
         uint32_t address, uint32_t *memoryLength);
 uint32_t branch(char **tokens, maps_t maps, uint32_t address);
 
-uint32_t getCond(char **tokens, map_t condMap, int offset);
-
+uint32_t getCond(char **tokens, map_t condMap);
+int getTypeLength(char **tokens);
 
 /*
  *Extension instructions
@@ -148,8 +145,6 @@ uint32_t extensionIns(char **tokens, maps_t maps, uint32_t address);
 uint32_t bx(char **tokens, map_t condMap);
 uint32_t pop(char **tokens, map_t condMap);
 uint32_t push(char **tokens, map_t condMap);
-
-
 
 /*
  * FUNCTION IMPLEMENTATION:
@@ -292,13 +287,17 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
         preprocessLine(buf);
         if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
-            int route = mapGet(&maps.typeMap, tokens[0]);
+            int typeLength = getTypeLength(tokens);
+            char* type = malloc((typeLength + 1) * sizeof(char));
+            strncpy(type, tokens[0], typeLength);
+            type[typeLength] = '\0';
+            int insType = mapGet(&maps.typeMap, type);
             /*
              * Choose instruction set depending on the route value
              */
             //TODO add a fancy enum
             uint32_t ins = 0;
-            switch (route) {
+            switch (insType) {
                 case 0:
                     ins = dataProcessing(tokens, maps);
                     break;
@@ -379,6 +378,7 @@ map_t initTypeMap(void) {
     mapPut(&typeMap, "tst", 0);
     mapPut(&typeMap, "teq", 0);
     mapPut(&typeMap, "cmp", 0);
+    mapPut(&typeMap, "lsl", 0);
 
     mapPut(&typeMap, "mul", 1);
     mapPut(&typeMap, "mla", 1);
@@ -387,17 +387,6 @@ map_t initTypeMap(void) {
     mapPut(&typeMap, "str", 2);
 
     mapPut(&typeMap, "b", 3);
-    mapPut(&typeMap, "ble", 3);
-    mapPut(&typeMap, "bgt", 3);
-    mapPut(&typeMap, "blt", 3);
-    mapPut(&typeMap, "bge", 3);
-    mapPut(&typeMap, "bne", 3);
-    mapPut(&typeMap, "beq", 3);
-
-
-
-    mapPut(&typeMap, "lsl", 0);
-    mapPut(&typeMap, "andeq", 0);
 
 //############~Exetension~############
     mapPut(&typeMap, "bx", 4);
@@ -533,13 +522,13 @@ void freeTokens(char **tokens) {
     }
 }
 
-uint32_t branch(char **tokens, maps_t maps, uint32_t address) {   
+uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
 
     uint32_t ins = 0;
     /*
      * work out what cond should be
      */
-    uint32_t cond = getCond(tokens, maps.condMap, 1);
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
     /*
      * calculate the offset
@@ -557,7 +546,7 @@ uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
 uint32_t multiply(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap, 3);
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
     /*
      * In case of mla function: set bit A and Rn register
@@ -612,7 +601,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
     }
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap, 3);
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
     /*
      * Set type if the instruction
@@ -687,7 +676,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
 uint32_t dataProcessing(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap, 3);
+    uint32_t cond = getCond(tokens, maps.condMap);
     ins |= cond << COND_POS;
 
     if (!strcmp(tokens[0], "lsl")) {
@@ -759,44 +748,56 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
     return ins;
 }
 
-uint32_t getCond(char **tokens, map_t condMap, int offset) {
-
-
-    uint32_t cond = mapGet(&condMap, tokens[0] + offset);
-    tokens[0][offset] = '\0';
+uint32_t getCond(char **tokens, map_t condMap) {
+    int typeLength = getTypeLength(tokens);
+    uint32_t cond = mapGet(&condMap, tokens[0] + typeLength);
+    tokens[0][typeLength] = '\0';
     return cond;
+}
+
+int getTypeLength(char **tokens) {
+    int typeLength = 3;
+    if (tokens[0][0] == 'b') {
+        if (tokens[0][1] == 'x') {
+            typeLength = 2;
+        } else {
+            typeLength = 1;
+        }
+    } else if (tokens[0][0] == 'p' && tokens[0][1] == 'u') {
+        typeLength = 4;
+    }
+    return typeLength;
 }
 
 //##################EXTENSION#################################################
 
 uint32_t extensionIns(char **tokens, maps_t maps, uint32_t address) {
-    if(!strcmp(tokens[0], "bx")) {
+    if (!strcmp(tokens[0], "bx")) {
         return bx(tokens, maps.condMap);
-    } else if(!strcmp(tokens[0], "push")) {
+    } else if (!strcmp(tokens[0], "push")) {
         return push(tokens, maps.condMap);
-    } else if(!strcmp(tokens[0], "pop")) {
+    } else if (!strcmp(tokens[0], "pop")) {
         return pop(tokens, maps.condMap);
-    } 
-        
-        return 0;
-    
-}
+    }
 
+    return 0;
+
+}
 
 uint32_t bx(char **tokens, map_t condMap) {
     uint32_t ins = 0;
     uint32_t rn = strtol(tokens[1] + 1, NULL, 0);
     const uint32_t constant = 0x12FFF1;
-    uint32_t cond = getCond(tokens, condMap, 2);
+    uint32_t cond = getCond(tokens, condMap);
     printf("%d\n", rn);
     ins |= cond << COND_POS;
     ins |= constant << BX_CONSTANT_POS;
-    ins |= rn ;
+    ins |= rn;
     return ins;
 }
 
 int hasDash(char *token) {
-    while(*token != '\0') {
+    while (*token != '\0') {
         if (*token == '-') {
             return 1;
         }
@@ -806,10 +807,10 @@ int hasDash(char *token) {
 }
 
 uint16_t getRegisterList(char **tokens) {
-    uint16_t regList =0; // List of registers to be loaded/stored (1 means yes)
+    uint16_t regList = 0; // List of registers to be loaded/stored (1 means yes)
     int i = 1; //Start token
 
-    while(1) {
+    while (1) {
         if (tokens[i] == NULL) {
             break;
         }
@@ -817,7 +818,7 @@ uint16_t getRegisterList(char **tokens) {
         if (hasDash(tokens[i])) {
             char *delim = "{}- ";
             char *tok = strtok(tokens[i], delim);
-            
+
             int start = strtol(tok + 1, NULL, 0);
             tok = strtok(NULL, delim);
             printf("%s\n", tok);
@@ -828,9 +829,9 @@ uint16_t getRegisterList(char **tokens) {
         } else {
             int reg;
             if (tokens[i][0] == '{') {
-                reg = strtol (tokens[i] + 2, NULL, 0);
+                reg = strtol(tokens[i] + 2, NULL, 0);
             } else {
-                reg = strtol (tokens[i] + 1, NULL, 0);
+                reg = strtol(tokens[i] + 1, NULL, 0);
             }
             regList |= 1 << reg;
         }
@@ -839,10 +840,9 @@ uint16_t getRegisterList(char **tokens) {
     return regList;
 }
 
-
 uint32_t push(char **tokens, map_t condMap) {
     uint16_t regList = getRegisterList(tokens);
-    uint32_t cond = getCond(tokens, condMap, 4);
+    uint32_t cond = getCond(tokens, condMap);
     uint32_t ins = 0;
 
     const uint32_t pushConst = 0x92d;
@@ -850,13 +850,12 @@ uint32_t push(char **tokens, map_t condMap) {
     ins |= cond << COND_POS;
     ins |= regList;
 
-
-    return ins;   
+    return ins;
 }
 
 uint32_t pop(char **tokens, map_t condMap) {
     uint16_t regList = getRegisterList(tokens);
-    uint32_t cond = getCond(tokens, condMap, 4);
+    uint32_t cond = getCond(tokens, condMap);
     uint32_t ins = 0;
 
     const uint32_t pushConst = 0x8BD;
@@ -870,5 +869,4 @@ uint32_t blockDataTransfer(char **tokens) {
     //might not be necessary, hardcoded in push pop for now
     return 0;
 }
-
 
