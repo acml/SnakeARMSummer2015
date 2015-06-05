@@ -62,7 +62,8 @@
 /*
  * Extension constants
  */
-#define BX_CONSTANT_POS 4
+#define BX_CONST_POS 4
+#define PUSH_POP_CONST_POS 16
 
 /*
  * STRUCTURES:
@@ -136,16 +137,14 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
         uint32_t address, uint32_t *memoryLength);
 uint32_t branch(char **tokens, maps_t maps, uint32_t address);
 
-uint32_t getCond(char **tokens, map_t condMap);
+uint32_t setCond(uint32_t ins, char **tokens, map_t condMap);
 int getTypeLength(char **tokens);
 
 /*
  *Extension instructions
  */
-uint32_t extensionIns(char **tokens, maps_t maps, uint32_t address);
-uint32_t bx(char **tokens, map_t condMap);
-uint32_t pop(char **tokens, map_t condMap);
-uint32_t push(char **tokens, map_t condMap);
+uint32_t bx(char **tokens, maps_t maps);
+uint32_t pushPop(char **tokens, maps_t maps);
 
 /*
  * FUNCTION IMPLEMENTATION:
@@ -313,7 +312,10 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
                     ins = branch(tokens, maps, address);
                     break;
                 case 4:
-                    ins = extensionIns(tokens, maps, address);
+                    ins = bx(tokens, maps);
+                    break;
+                case 5:
+                    ins = pushPop(tokens, maps);
                     break;
                 default:
                     printf("Unsupported instructions type.\n");
@@ -392,8 +394,8 @@ map_t initTypeMap(void) {
 
 //############~Exetension~############
     mapPut(&typeMap, "bx", 4);
-    mapPut(&typeMap, "push", 4);
-    mapPut(&typeMap, "pop", 4);
+    mapPut(&typeMap, "push", 5);
+    mapPut(&typeMap, "pop", 5);
 
     return typeMap;
 
@@ -538,8 +540,7 @@ uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     /*
      * work out what cond should be
      */
-    uint32_t cond = getCond(tokens, maps.condMap);
-    ins |= cond << COND_POS;
+    ins = setCond(ins, tokens, maps.condMap);
 
     if (tokens[0][1] == 'l') {
         ins |= 1 << BRANCH_L_BIT;
@@ -560,8 +561,7 @@ uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
 uint32_t multiply(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap);
-    ins |= cond << COND_POS;
+    ins = setCond(ins, tokens, maps.condMap);
     /*
      * In case of mla function: set bit A and Rn register
      */
@@ -615,8 +615,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
     }
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap);
-    ins |= cond << COND_POS;
+    ins = setCond(ins, tokens, maps.condMap);
     /*
      * Set type if the instruction
      */
@@ -690,8 +689,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
 uint32_t dataProcessing(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
-    uint32_t cond = getCond(tokens, maps.condMap);
-    ins |= cond << COND_POS;
+    ins = setCond(ins, tokens, maps.condMap);
 
     if (!strcmp(tokens[0], "lsl")) {
         tokens[4] = tokens[2];
@@ -762,11 +760,11 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
     return ins;
 }
 
-uint32_t getCond(char **tokens, map_t condMap) {
+uint32_t setCond(uint32_t ins, char **tokens, map_t condMap) {
     int typeLength = getTypeLength(tokens);
     uint32_t cond = mapGet(&condMap, tokens[0] + typeLength);
     tokens[0][typeLength] = '\0';
-    return cond;
+    return ins |= cond << COND_POS;
 }
 
 int getTypeLength(char **tokens) {
@@ -786,28 +784,12 @@ int getTypeLength(char **tokens) {
 
 //##################EXTENSION#################################################
 
-uint32_t extensionIns(char **tokens, maps_t maps, uint32_t address) {
-    if (!strcmp(tokens[0], "bx")) {
-        return bx(tokens, maps.condMap);
-    } else if (!strcmp(tokens[0], "push")) {
-        return push(tokens, maps.condMap);
-    } else if (!strcmp(tokens[0], "pop")) {
-        return pop(tokens, maps.condMap);
-    }
-
-    return 0;
-
-}
-
-uint32_t bx(char **tokens, map_t condMap) {
+uint32_t bx(char **tokens, maps_t maps) {
     uint32_t ins = 0;
+    ins = setCond(ins, tokens, maps.condMap);
     uint32_t rn = strtol(tokens[1] + 1, NULL, 0);
-    const uint32_t constant = 0x12FFF1;
-    uint32_t cond = getCond(tokens, condMap);
-    printf("%d\n", rn);
-    ins |= cond << COND_POS;
-    ins |= constant << BX_CONSTANT_POS;
     ins |= rn;
+    ins |= 0x12fff1 << BX_CONST_POS;
     return ins;
 }
 
@@ -855,33 +837,15 @@ uint16_t getRegisterList(char **tokens) {
     return regList;
 }
 
-uint32_t push(char **tokens, map_t condMap) {
-    uint16_t regList = getRegisterList(tokens);
-    uint32_t cond = getCond(tokens, condMap);
+uint32_t pushPop(char **tokens, maps_t maps) {
     uint32_t ins = 0;
-
-    const uint32_t pushConst = 0x92d;
-    ins |= pushConst << 16;
-    ins |= cond << COND_POS;
+    ins = setCond(ins, tokens, maps.condMap);
+    uint32_t regList = getRegisterList(tokens);
     ins |= regList;
-
+    if (!strcmp(tokens[0], "push")) {
+        ins |= 0x92d << PUSH_POP_CONST_POS;
+    } else {
+        ins |= 0x8bd << PUSH_POP_CONST_POS;
+    }
     return ins;
 }
-
-uint32_t pop(char **tokens, map_t condMap) {
-    uint16_t regList = getRegisterList(tokens);
-    uint32_t cond = getCond(tokens, condMap);
-    uint32_t ins = 0;
-
-    const uint32_t pushConst = 0x8BD;
-    ins |= pushConst << 16;
-    ins |= cond << COND_POS;
-    ins |= regList;
-    return ins;
-}
-
-uint32_t blockDataTransfer(char **tokens) {
-    //might not be necessary, hardcoded in push pop for now
-    return 0;
-}
-
