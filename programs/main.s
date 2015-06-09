@@ -3,7 +3,8 @@ b main
 
 /*
  *
- * GRAPHICS ADDRESS = 81920
+ * GRAPHICS ADDRESS = 11796480
+ * STATE ADDRESS = 1000000
  */
 
 main:
@@ -18,7 +19,7 @@ main:
 */
 
     mov r0,#1024
-    mov r1,#768
+    mov r1,#768 
     mov r2,#32
     bl InitialiseFrameBuffer
 
@@ -42,23 +43,92 @@ main:
 /* NEW
 * Set pixels forevermore.
 */
+	ldr r0,=0x20200004
+	mov r1,#0
+	str r1,[r0]
  
-    mov r2,#50
+    mov r2,#32
 
     ldr r3,=0xff00
+    push {r0-r4}
+    bl InitialiseStateMemory
+    ldr r1,=1000000
 
 
+    mov r2,#8
+    str r2,[r1]
+    mov r2,#16
+    str r2,[r1,#124]
+    mov r2,#32
+    str r2,[r1,#3068]
+    mov r2,#4
+    str r2,[r1,#2944]
+
+
+    pop {r0-r4}
+
+    /*
+     * r4 - direction drawing
+     * r5 - direction erasing
+     * r6 - x drawing
+     * r7 - y drawing
+     * r8 - x erasing
+     * r9 - y erasing
+     */
+    mov r6,#32
+    mov r7,#0
+    mov r8,#256
+    mov r9,#0
+    mov r5,#4
+    mov r4,#4
+   	
 
 render$:
-    mov r0,#700
-    mov r1,#900
+	
+	b test$
+
     loop1$:  
+
+    	/*
+    	 * Drawing
+    	 */
+
+        push {r0-r3}
+        mov r0,r6
+        mov r1,r7
+        
+        ldr r3,=0xff00
         push {r0-r4}
-        push {r0-r4}
-        bl DrawOutline
-        pop {r0-r4}
         bl DrawRectangle
         pop {r0-r4}
+		mov r3,r4
+        bl blockChecks
+        mov r4,r3
+        mov r6,r0
+        mov r7,r1
+        pop {r0-r3}
+
+
+        /*
+         * Erasing
+         */
+
+        push {r0-r3}
+        mov r0,r8
+        mov r1,r9
+        
+        mov r3,#0
+        push {r0-r4}
+        bl DrawRectangle
+        pop {r0-r4}
+		mov r3,r5
+        bl blockChecks
+        mov r5,r3
+        mov r8,r0
+        mov r9,r1
+        pop {r0-r3}
+
+
 
 
         push {r0-r4}
@@ -66,68 +136,82 @@ render$:
         bl Wait
         pop {r0-r4}
 
-        sub r0,r0,#1
-        teq r0,#50
-        bne loop1$
-
-    loop2$:  
-        push {r0-r4}
-        push {r0-r4}
-        bl DrawOutline
-        pop {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
 
 
-        push {r0-r4}
-        ldr r0,=10000
-        bl Wait
-        pop {r0-r4}
-
-        sub r1,r1,#1
-        teq r1,#50
-        bne loop2$
-
-    loop3$:  
-        push {r0-r4}
-        push {r0-r4}
-        bl DrawOutline
-        pop {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
-
-
-        push {r0-r4}
-        ldr r0,=10000
-        bl Wait
-        pop {r0-r4}
-
-        add r0,r0,#1
-        teq r0,#700
-        bne loop3$
-
-    loop4$:  
-        push {r0-r4}
-        push {r0-r4}
-        bl DrawOutline
-        pop {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
-
-
-        push {r0-r4}
-        ldr r0,=10000
-        bl Wait
-        pop {r0-r4}
-
-        add r1,r1,#1
-        teq r1,#900
-        bne loop4$
-
-
-
-
+        b loop1$
  b render$
+
+test$:
+		mov r0,#50
+		mov r1,#50
+		mov r2,#50
+		ldr r6,=0x20200034
+		ldr r7,[r6]
+		tst r7,#0x400000
+	    ldreq r3,=0xff00
+	    ldrne r3,=0xff
+
+        push {r0-r4}
+        bl DrawRectangle
+        pop {r0-r4}
+
+	b test$
+
+
+blockChecks:
+	
+      push {r14}
+	
+      tst r0,#0x1f
+      tsteq r1,#0x1f
+      beq enterBlock$
+
+ 
+    directionTests$:
+        tst r3,#4
+        subne r0,r0,#1
+
+        tst r3,#8
+        addne r1,r1,#1
+
+        tst r3,#16
+        addne r0,r0,#1
+
+        tst r3,#32
+        subne r1,r1,#1
+    pop {r15}
+
+enterBlock$:
+    push {r0-r2}
+    bl enterBlock
+    tst r0,#0x3c
+    movne r3,r0
+    pop {r0-r2}
+    b directionTests$
+
+
+enterBlock:
+	/*
+	 * r0 stores y
+	 * r1 stores x
+	 * r2 stores row length (32)
+	 */
+
+	/*
+	 * r0 = y / 32
+	 * r1 = x / 32
+	 * r0 = r0 * 32 + r1
+	 */
+
+	  mov r0,r0,lsr #5
+	  mov r1,r1,lsr #5
+	  mov r2,#32
+	  mla r0,r0,r2,r1
+	  lsl r0,#2
+	  ldr r1,=1000000
+	  ldr r0,[r1,r0]
+
+	  mov r15,r14
 
 DrawPixel:
     /*
@@ -185,7 +269,7 @@ DrawRectangle:
      * r3 will store y
      * r4 will store x
      */
-     push {r14}
+     push {r4,r5,r14}
     mov r5,r3
     mov r3,r0
     add r3,r3,r2
@@ -212,85 +296,8 @@ DrawRectangle:
         sub r3,r3,#1
         teq r3,r0
         bne drawRow$
-     pop {r15}
+     pop {r4,r5,r15}
 
-
-DrawOutline:
-    /*
-     * r0 will store y0
-     * r1 will store x0
-     * r2 will store side
-     * r3 will store y
-     * r4 will store x
-     */
-
-     push {r5,r14}
-     mov r5,r0
-     sub r5,r5,#1
-     mov r3,r0
-     add r3,r3,r2
-     add r3,r3,#1
-     mov r4,r1
-     add r4,r4,r2
-     add r4,r4,#1
-     outlineLoop1$:  
-        push {r0-r4}
-        mov r0,r3
-        mov r1,r4
-        mov r2,#0
-        bl DrawPixel
-        pop {r0-r4}
-
-        sub r3,r3,#1
-
-        teq r3,r5
-        bne outlineLoop1$
-    mov r5,r1
-    sub r5,r5,#1 
-    outlineLoop2$:  
-        push {r0-r4}
-        mov r0,r3
-        mov r1,r4
-        mov r2,#0
-        bl DrawPixel
-        pop {r0-r4}
-
-        sub r4,r4,#1
-        teq r4,r5
-        bne outlineLoop2$
-    mov r5,r0
-    add r5,r5,r2
-    add r5,r5,#1
-
-    outlineLoop3$:  
-        push {r0-r4}
-        mov r0,r3
-        mov r1,r4
-        mov r2,#0
-        bl DrawPixel
-        pop {r0-r4}
-
-        add r3,r3,#1
-        teq r3,r5
-        bne outlineLoop3$ 
-     
-
-    mov r5,r1
-    add r5,r5,r2
-    add r5,r5,#1
-
-    outlineLoop4$:  
-        push {r0-r4}
-        mov r0,r3
-        mov r1,r4
-        mov r2,#0
-        bl DrawPixel
-        pop {r0-r4}
-
-        add r4,r4,#1
-        teq r4,r5
-        bne outlineLoop4$ 
-     pop {r5,r15}
 
 DrawBg:
     
@@ -471,9 +478,7 @@ movhi r15,r14
 */
     push {r4,r14}
     mov r5,#0
-    /*
-    * PROBABLY BROKEN
-    */
+
     ldr r4,=11796480
     str r0,[r4,#0]
     str r1,[r4,#4]
@@ -502,3 +507,20 @@ movhi r15,r14
     mov r0,r4
     pop {r4,r15}
 
+InitialiseStateMemory:
+	/*
+	 * r0 will store 0
+	 * r1 will store memory offset
+	 * r2 will store memory
+	 */
+	mov r0,#0
+	ldr r1,=768
+	ldr r2,=1000000
+    snakeMemoryLoop$:  
+        str r0,[r2],#4
+        sub r1,r1,#1
+        cmp r1,#0
+        bne snakeMemoryLoop$
+    mov r15,r14
+
+    
