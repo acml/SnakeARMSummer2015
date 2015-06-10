@@ -68,14 +68,14 @@ main:
      * r9 - y erasing
      * r10 - input register
      */
-    mov r4,#16
-    mov r5,#16
     mov r6,#256
     mov r7,#512
-    mov r8,#0
+    mov r8,#32
     mov r9,#512
-
+    mov r5,#16
+    mov r4,#16
     mov r10,#0
+    mov r11,#128
    	
    	/*
    	 * Draw initial background
@@ -130,7 +130,10 @@ loop1$:
 
 	mov r3,r5
 	mov r2,#0
-    bl Move
+	
+	tst r11,#0x3f
+	subne r11,r11,#1
+    bleq Move
     /*
      * store updated values
      */
@@ -138,6 +141,11 @@ loop1$:
     mov r8,r0
     mov r9,r1
     pop {r0-r3}
+
+
+    tst r10,#64
+	bne reset$
+
     /*
      * Check inputs TODO check if pushing regs is necessary
      */
@@ -182,15 +190,21 @@ loop1$:
 
 
 
+
 	/*
 	 * Wait loop 
 	 */
     push {r0-r4}
-    ldr r0,=10000
+    ldr r0,=1000
     bl Wait
     pop {r0-r4}
 
 
+    /*
+     *	Generate food
+     */
+    tst r11,#128
+    bne GenerateFood$
 
     b loop1$
 
@@ -212,12 +226,87 @@ reset$:
      */
     mov r6,#256
     mov r7,#512
-    mov r8,#0
+    mov r8,#32
     mov r9,#512
     mov r5,#16
     mov r4,#16
     mov r10,#0
+    mov r11,#128
     b loop1$
+
+
+GenerateFood$:
+	
+	/* 
+	 * Get random number
+	 */
+
+	push {r0,r1,r5,r6}
+	/*
+	 * Take bottom ten bits from a random number
+	 * If it is bigger than 768, substract 512
+	 */
+	bl random
+	ldr r5,=0x3ff
+	and r0,r0,r5
+	cmp r0,#768
+	subge r0,#512
+	
+	/*
+	 * Make sure snake is not there
+	 */
+	ldr r5,=1000000
+	ldr r6,[r5,r0,lsl #2]
+	tst r6,#1
+	popne {r0,r1,r5,r6}	
+	bne GenerateFood$
+	
+	/*
+	 * Set foot bit and store at block address
+	 */
+	add r6,r6,#2
+	str r6,[r5,r0,lsl #2]
+
+	/*
+	 * Compute x and y
+	 */
+	mov r5,#0
+	cmp r0,#32
+	bge substractions$
+
+	computeX$:
+	mov r6,r0
+	
+	cmp r5,#0
+	cmpne r5,#23
+	cmpne r6,#0
+	cmpne r6,#31
+	popeq {r0,r1,r5,r6}	
+	beq GenerateFood$
+
+
+
+	lsl r5,#5
+	lsl r6,#5
+
+	push {r0-r4}
+	mov r0,r5
+	mov r1,r6
+	mov r2,#32
+	mov r3,#0xff00
+	bl DrawRectangle
+	pop {r0-r4}
+
+	sub r11,r11,#128
+	pop {r0,r1,r5,r6}
+	b loop1$
+
+substractions$:
+	sub r0,r0,#32
+	add r5,r5,#1
+	cmp r0,#32
+	bge substractions$
+	b computeX$
 
 
 Move:
@@ -285,6 +374,7 @@ drawing$:
 
 	push {r0-r3}
 	bl writeBlock
+
 	pop {r0-r3}
 
 	b directionTests$
@@ -317,6 +407,7 @@ eraseBlock:
 	 */
 
 	ldr r2,[r1,r0]
+
 	
 	/*
 	 * Reset block to 0
@@ -337,11 +428,45 @@ writeBlock:
 	 * Calculating the address of current block in memory
 	 */
 	mov r0,r0,lsr #5
+	/*
+	 * Check boundaries
+	 */
+	tst r0,r0
+	moveq r10,#64
+
+	cmp r0,#0x17
+	moveq r10,#64
+
+
+
 	mov r1,r1,lsr #5
+
+	tst r1,r1
+	moveq r10,#64
+
+	cmp r1,#0x1f
+	moveq r10,#64
+
 	mov r2,#32
 	mla r0,r0,r2,r1
 	lsl r0,#2
 	ldr r1,=1000000
+	
+	ldr r2,[r1,r0]
+	
+	/*
+	 * Check collision
+	 */
+	tst r2,#1
+	movne r10,#64
+
+	/*
+	 * Check food
+	 */
+	tst r2,#2
+	movne r11,#128
+	addne r11,#32
+
 
 	/*
 	 * Set snake bit
@@ -411,10 +536,12 @@ DrawRectangle:
      * r3 will store y
      * r4 will store x
      */
-     push {r4,r5,r14}
+     
+    push {r4,r5,r7,r14}
     mov r5,r3
     mov r3,r0
     add r3,r3,r2
+    sub r3,r3,#6
 
 
     drawRow$:
@@ -423,6 +550,7 @@ DrawRectangle:
          */
         mov r4,r1
         add r4,r4,r2
+        sub r4,r4,#6
         drawPixel$:
             push {r0-r4}
             mov r0,r3
@@ -432,13 +560,17 @@ DrawRectangle:
             pop {r0-r4}
 
             sub r4,r4,#1
-            teq r4,r1
+            mov r7,r1
+            add r7,r7,#5
+            teq r4,r7
             bne drawPixel$
 
         sub r3,r3,#1
-        teq r3,r0
+        mov r7,r0
+       	add r7,r7,#5
+        teq r3,r7
         bne drawRow$
-     pop {r4,r5,r15}
+     pop {r4,r5,r7,r15}
 
 DrawOctagon:
 	push {r0-r10,r14}
@@ -597,26 +729,54 @@ DrawOctagon:
 
 
 DrawBg:
-    ldr r4,=11796480
-    ldr r3,[r4,#32]
-    ldr r0, =0xFFB49B82
-    mov r1,#768
-    BgdrawRow$:
 
+
+
+    /*
+     * r0 will store y0
+     * r1 will store x0
+     * r2 will store side
+     * r3 will store y
+     * r4 will store x
+     */
+    push {r4,r5,r14}
+    mov r0,#768
+    sub r1,r1,#1
+
+
+    BgdrawRow$:
         /*
          * r2 represents x
          */
-        mov r2,#1024
-        BgdrawPixel$:
-            str r0,[r3]
-            add r3,r3,#4
-            sub r2,r2,#1
-            teq r2,#0
-            bne BgdrawPixel$
+        mov r1,#1024
         sub r1,r1,#1
-        teq r1,#0
+       
+
+        BgdrawPixel$:
+        	ldr r2,=0xFFB49B82
+        	cmp r0,#32
+        	ldrlt r2,=0xFF3A322A
+        	cmp r0,#736
+        	ldrgt r2,=0xFF3A322A
+        	cmp r1,#32
+        	ldrlt r2,=0xFF3A322A
+        	cmp r1,#992
+        	ldrgt r2,=0xFF3A322A
+
+            push {r0-r4}
+            bl DrawPixel
+            pop {r0-r4}
+
+            sub r1,r1,#1
+            teq r1,#0
+            bne BgdrawPixel$
+
+        sub r0,r0,#1
+        teq r0,#0
         bne BgdrawRow$
-    mov r15,r14
+     
+    pop {r4,r5,r15}
+   
 
 
 GetMailboxBase:
@@ -820,4 +980,15 @@ InitialiseStateMemory:
         bne snakeMemoryLoop$
     mov r15,r14
 
-    
+random:
+	ldr r1,=900000
+	ldr r0,[r1]
+	mov r1,#0xef00
+	mul r1,r1,r0
+	mul r1,r1,r0
+	add r1,r1,r0
+	add r0,r1,#73
+	ldr r1,=900000
+	str r0,[r1]
+	mov r15,r14
+
