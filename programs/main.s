@@ -5,6 +5,7 @@ b main
  *
  * GRAPHICS ADDRESS = 11796480
  * STATE ADDRESS = 1000000
+ * VARIABLES = 900000
  */
 
 main:
@@ -40,31 +41,22 @@ main:
     */
     mov r4,r0
 
-/* NEW
-* Set pixels forevermore.
-*/
+    /*
+     * Initialize input pins
+     */
+
 	ldr r0,=0x20200004
 	mov r1,#0
 	str r1,[r0]
  
+ 	/*
+ 	 * One grid square size
+ 	 */
     mov r2,#32
 
-    ldr r3,=0xff00
+
     push {r0-r4}
     bl InitialiseStateMemory
-    ldr r1,=1000000
-
-
-    mov r2,#8
-    str r2,[r1]
-    mov r2,#16
-    str r2,[r1,#124]
-    mov r2,#32
-    str r2,[r1,#3068]
-    mov r2,#4
-    str r2,[r1,#2944]
-
-
     pop {r0-r4}
 
     /*
@@ -74,144 +66,295 @@ main:
      * r7 - y drawing
      * r8 - x erasing
      * r9 - y erasing
+     * r10 - input register
      */
-    mov r6,#32
-    mov r7,#0
-    mov r8,#256
-    mov r9,#0
-    mov r5,#4
-    mov r4,#4
+    mov r4,#16
+    mov r5,#16
+    mov r6,#256
+    mov r7,#512
+    mov r8,#0
+    mov r9,#512
+
+    mov r10,#0
    	
+   	/*
+   	 * Draw initial background
+   	 */
+    push {r0-r4}
+    bl DrawBg
+    pop {r0-r4}
 
-render$:
+
+
+
+loop1$:  
+
+	push {r0-r3}
+	/*
+	 * Initialize arguments y, x, color for octagon
+	 */
+    mov r0,r6
+    mov r1,r7
+    ldr r3,=0xFF005200
+    push {r0-r4}
+    bl DrawOctagon
+    pop {r0-r4}
+    /* 
+     * save direction of drawing as argument for Move
+     * save 1 to r2 to inform Move that we are drawing
+     */
+	mov r3,r4
+	mov r2,#1
+    bl Move
+    /*
+     * store updated values
+     *
+     */
+    mov r4,r3
+    mov r6,r0
+    mov r7,r1
+	pop {r0-r3}
+
+
+    /*
+     * Erasing - same logic as before
+     */
+    push {r0-r3}
+    mov r0,r8
+    mov r1,r9
+    ldr r3,=0xFFB49B82
+
+    push {r0-r4}
+    bl DrawRectangle
+    pop {r0-r4}
+
+	mov r3,r5
+	mov r2,#0
+    bl Move
+    /*
+     * store updated values
+     */
+    mov r5,r3
+    mov r8,r0
+    mov r9,r1
+    pop {r0-r3}
+    /*
+     * Check inputs TODO check if pushing regs is necessary
+     */
+    push {r6-r7}
+
+    /*
+     * Load value at Input level 0 memory location to r7
+     * If input present, store it in input register r10
+     */
+    ldr r6,=0x20200034
+	ldr r7,[r6]
 	
-	b test$
+	/*
+	 * Pin 22
+	 * Up arrow
+	 */
+	tst r7,#0x400000
+	movne r10,#4
 
-    loop1$:  
+	/*
+	 * Pin 27
+	 * Right arrow
+	 */
+	tst r7,#0x8000000
+	movne r10,#8
 
-    	/*
-    	 * Drawing
-    	 */
+	/*
+	 * Pin 23
+	 * Down arrow
+	 */
+	tst r7,#0x800000
+	movne r10,#16
 
-        push {r0-r3}
-        mov r0,r6
-        mov r1,r7
-        
-        ldr r3,=0xff00
-        push {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
-		mov r3,r4
-        bl blockChecks
-        mov r4,r3
-        mov r6,r0
-        mov r7,r1
-        pop {r0-r3}
+	/*
+	 * Pin 24
+	 * Left arrow
+	 */
+	tst r7,#0x1000000
+	movne r10,#32
 
-
-        /*
-         * Erasing
-         */
-
-        push {r0-r3}
-        mov r0,r8
-        mov r1,r9
-        
-        mov r3,#0
-        push {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
-		mov r3,r5
-        bl blockChecks
-        mov r5,r3
-        mov r8,r0
-        mov r9,r1
-        pop {r0-r3}
+	pop {r6-r7}	
 
 
 
-
-        push {r0-r4}
-        ldr r0,=10000
-        bl Wait
-        pop {r0-r4}
-
-
-
-        b loop1$
- b render$
-
-test$:
-		mov r0,#50
-		mov r1,#50
-		mov r2,#50
-		ldr r6,=0x20200034
-		ldr r7,[r6]
-		tst r7,#0x400000
-	    ldreq r3,=0xff00
-	    ldrne r3,=0xff
-
-        push {r0-r4}
-        bl DrawRectangle
-        pop {r0-r4}
-
-	b test$
+	/*
+	 * Wait loop 
+	 */
+    push {r0-r4}
+    ldr r0,=10000
+    bl Wait
+    pop {r0-r4}
 
 
-blockChecks:
+
+    b loop1$
+
+
+reset$:
+	/* 
+	 * Memset snake memory to zeroes
+	 * Redraw background
+	 */
+
+    push {r0-r4}
+    bl InitialiseStateMemory
+    bl DrawBg
+    pop {r0-r4}
+
+    /*
+     * Start drawing snake  at origin
+     *
+     */
+    mov r6,#256
+    mov r7,#512
+    mov r8,#0
+    mov r9,#512
+    mov r5,#16
+    mov r4,#16
+    mov r10,#0
+    b loop1$
+
+
+Move:
+	/*
+	 * Push return address on stack, so we can branch back
+	 */
+    push {r14}
 	
-      push {r14}
-	
-      tst r0,#0x1f
-      tsteq r1,#0x1f
-      beq enterBlock$
+	/*
+	 * Test if coordinates are on grid intersection
+	 */
+    tst r0,#0x1f
+    tsteq r1,#0x1f
+    beq enterBlock$
 
  
     directionTests$:
+    	/*
+    	 * Direction up
+    	 * decrement y
+    	 */
         tst r3,#4
         subne r0,r0,#1
 
+    	/*
+    	 * Direction right
+    	 * increment x
+    	 */
         tst r3,#8
         addne r1,r1,#1
 
+    	/*
+    	 * Direction down
+    	 * increment y
+    	 */
         tst r3,#16
         addne r0,r0,#1
-
+    	
+    	/*
+    	 * Direction left
+    	 * decrement x
+    	 */
         tst r3,#32
         subne r1,r1,#1
     pop {r15}
 
+/* 
+ * Gets called if the snake is at a coordinate divisible by 32
+ */
 enterBlock$:
-    push {r0-r2}
-    bl enterBlock
+	tst r2,r2
+	bne drawing$
+	beq erasing$
+
+
+
+drawing$:
+	/* 
+	 * Check if there was some input 
+	 */
+	tst r10,r10
+	movne r3,r10
+	mov r10,#0
+
+
+	push {r0-r3}
+	bl writeBlock
+	pop {r0-r3}
+
+	b directionTests$
+
+
+erasing$:
+	push {r0-r2}
+    bl eraseBlock
     tst r0,#0x3c
     movne r3,r0
     pop {r0-r2}
     b directionTests$
+	
 
-
-enterBlock:
+eraseBlock:
+	push {r5}
 	/*
-	 * r0 stores y
-	 * r1 stores x
-	 * r2 stores row length (32)
+	 * Compute address of the block
+	 */
+	
+	mov r0,r0,lsr #5
+	mov r1,r1,lsr #5
+	mov r2,#32
+	mla r0,r0,r2,r1
+	lsl r0,#2
+	ldr r1,=1000000
+	
+	/*
+	 * Load block
 	 */
 
+	ldr r2,[r1,r0]
+	
 	/*
-	 * r0 = y / 32
-	 * r1 = x / 32
-	 * r0 = r0 * 32 + r1
+	 * Reset block to 0
 	 */
+	mov r5,#0
+	str r5,[r1,r0]
 
-	  mov r0,r0,lsr #5
-	  mov r1,r1,lsr #5
-	  mov r2,#32
-	  mla r0,r0,r2,r1
-	  lsl r0,#2
-	  ldr r1,=1000000
-	  ldr r0,[r1,r0]
+	/*
+	 * Return block
+	 */
+	mov r0,r2
+	pop {r5}
+	mov r15,r14
 
-	  mov r15,r14
+writeBlock: 
+	
+	/*
+	 * Calculating the address of current block in memory
+	 */
+	mov r0,r0,lsr #5
+	mov r1,r1,lsr #5
+	mov r2,#32
+	mla r0,r0,r2,r1
+	lsl r0,#2
+	ldr r1,=1000000
+
+	/*
+	 * Set snake bit
+	 */
+	add r3,r3,#1
+
+	/*
+	 * Store block
+	 */
+	str r3,[r1,r0]
+	
+	mov r15,r14
+
 
 DrawPixel:
     /*
@@ -227,17 +370,15 @@ DrawPixel:
     ldr r4,=11796480
     mov r5,r2
 
-    /*
-     * Safety checks (x < width, y < height)
-     *
-    * ldr r2,[r4,#4]
-    * cmp r0,r2
-    * movge r15,r14
+
     
-    * ldr r2,[r4,#0]
-    * cmp r1,r2
-    * movge r15,r14
-    */
+    cmp r0,#768
+    bge endDrawPixel$
+    
+
+    cmp r1,#1024
+    bge endDrawPixel$
+    
 
     /*
      * Load other constants
@@ -257,6 +398,7 @@ DrawPixel:
      * store FG color and return
      */
     str r5,[r3]
+    endDrawPixel$:
     pop {r5,r6}
     mov r15,r14
 
@@ -298,11 +440,166 @@ DrawRectangle:
         bne drawRow$
      pop {r4,r5,r15}
 
+DrawOctagon:
+	push {r0-r10,r14}
+	/*
+	 * r6 snake width
+	 * r0 y
+	 * r1 x
+	 * r4 y0
+	 * r5 x0
+	 * r6 offset
+	 * constants : padding 6
+	 *			   size 32
+	 */
+	 mov r4,r0
+	 mov r5,r1
+	 
+	 
+	 /*
+	  * Upper part of octagon
+	  */
+	 mov r6,#0
+	 add r0,r0,#12
+	 ldr r2,=0xFF005200
+
+	 
+
+	 OctagonUpOuterLoop$:
+	 	/*
+	 	 * Reset x and compute first pixel
+	 	 * x = x0 + 6 + offset
+	 	 */
+	 	mov r1,r5
+	 	add r1,r1,#6
+	 	add r1,r1,r6
+	 	OctagonUpInnerLoop$:
+	 		/*
+	 		 * Draw it
+	 		 */
+	 		push {r0-r4}
+	 		bl DrawPixel
+	 		pop {r0-r4}
+	 		
+	 		/*
+	 		 * Increment x
+	 		 */ 
+	 		add r1,r1,#1
+
+	 		/*
+	 		 * Compute boundary r7 = x0 + (32-6) - offset
+	 		 */
+	 		mov r7,r5
+	 		add r7,r7,#26
+	 		sub r7,r7,r6
+
+	 		/*
+	 		 * while (x <  boundary)
+	 		 */
+	 		cmp r1,r7
+	 		blt OctagonUpInnerLoop$
+	 	
+	 	/*
+	 	 * Increment offset
+	 	 */
+	 	add r6,r6,#1
+ 		
+ 		/*
+ 		 * Decrement y
+ 		 */ 
+ 		sub r0,r0,#1
+
+ 		/*
+ 		 * Compute boundary r7 = x0 + (32-6) - offset
+ 		 */
+ 		mov r7,r4
+ 		add r7,#6
+ 		cmp r0,r7
+ 		bne OctagonUpOuterLoop$
+  
+ 	mov r0,r4
+ 	add r0,r0,#19
+    OctagonMidOuterLoop$:
+
+        mov r1,r5
+        add r1,r1,#25
+        OctagonMidInnerLoop$:
+            push {r0-r4}
+            bl DrawPixel
+            pop {r0-r4}
+            sub r1,r1,#1
+
+            mov r7,r5
+            add r7,r7,#5
+            cmp r1,r7
+            bne OctagonMidInnerLoop$
+
+        sub r0,r0,#1
+        mov r7,r4
+        add r7,r7,#12
+        cmp r0,r7
+        bne OctagonMidOuterLoop$
+
+
+	 /*
+	  * Upper part of octagon
+	  */
+	 mov r6,#0
+	 mov r0,r4
+	 add r0,r0,#20
+	
+
+	 
+
+	 OctagonDownOuterLoop$:
+	 	mov r1,r5
+	 	add r1,r1,#6
+	 	add r1,r1,r6
+	 	OctagonDownInnerLoop$:
+	 		push {r0-r4}
+
+	 		bl DrawPixel
+	 		pop {r0-r4}
+	 		/*
+	 		 * Increment x
+	 		 */ 
+	 		add r1,r1,#1
+
+	 		/*
+	 		 * Compute boundary r7 = x0 + (32-6) - offset
+	 		 */
+	 		mov r7,r5
+	 		add r7,r7,#26
+	 		sub r7,r7,r6
+
+	 		
+	 		cmp r1,r7
+	 		blt OctagonDownInnerLoop$
+		/*
+	 	 * Increment offset
+	 	 */
+	 	add r6,r6,#1
+ 		/*
+ 		 * Increment y
+ 		 */ 
+ 		add r0,r0,#1
+
+ 		/*
+ 		 * Compute boundary r7 = x0 + (32-6) - offset
+ 		 */
+ 		mov r7,r4
+ 		add r7,#26
+ 		cmp r0,r7
+ 		bne OctagonDownOuterLoop$
+	 
+
+	pop {r0-r10,r15}
+
 
 DrawBg:
-    
+    ldr r4,=11796480
     ldr r3,[r4,#32]
-    ldr r0, =0xffffffff
+    ldr r0, =0xFFB49B82
     mov r1,#768
     BgdrawRow$:
 
