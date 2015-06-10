@@ -1,0 +1,1663 @@
+mov r0, r5
+mov r1, r6
+
+ldr r2,=0xff524c00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5301
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff641d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff217326
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff16661a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff590f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff1a6412
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7aff53
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff36a128
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff3a00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff123600
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6d3316
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff522a17
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff602b17
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff602c17
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4f200f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff15801
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff15401
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff57016
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff96828
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff15e31
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5623
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff347f2c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff27721b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffffffb9
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff58e246
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff552f11
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff783c1a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7a3a1a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7b3b1a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff20000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff1b0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6601
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff2a409
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff58b12
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5d20
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff125d2c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff56a03f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff1c6915
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9aff8c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff470003
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff632d14
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5e2e19
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6b2b14
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff50200f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff5507
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4906
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff14c03
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7f1b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffab13
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff3ab08
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff700a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff2b662a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5aa343
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5703
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff3b3c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff53230f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff2a0d06
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff260701
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff3f190d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702712
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff15101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff14800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff14d00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff1550e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7129
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8f23
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4af13
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7b06
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff418233
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff389430
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5e1d08
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff491d0c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff652610
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5b2109
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe58287
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff983f31
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff551700
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff561800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff732914
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff5100
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff14b01
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff13b00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff14300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff15510
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff26324
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7526
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9018
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5830f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff167018
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff542b0e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff762e1e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff803e26
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff57280f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8b3c30
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7d2e1b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff82311f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7d2e1b
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff15102
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff15103
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff15201
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff26007e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff1f7200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4905
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff223b09
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4f3203
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff862204
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa01b09
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff762210
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb01b18
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb22d28
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb6423b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffaa4b40
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff823926
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffffffff
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff61220e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff742914
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff15200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff303f08
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa00039
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb3c000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff81
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9f340c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe5860b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffd5909
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff20000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffaf0201
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa90905
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd70000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd10000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffcd0908
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffcc2525
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc64744
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9f4437
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff3b1200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff331400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6d2c16
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff672812
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc33304
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffad0906
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff831d10
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffdf7400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffff428
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffce499
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff99a6d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffed5c39
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffb2503
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffd2500
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffa3701
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff23500
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffcf0400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb70103
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc02d2d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff973a2c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff712711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff361918
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff352418
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffba2707
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff8300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffce30e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffffeaf
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffffffff
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffff6bd
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff7f0d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5f00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff6901
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffd4600
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe90701
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc30000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa90000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffad2723
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7c3621
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff833c28
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff83240e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff731c0f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702010
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd42a03
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff6300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe9400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffffba0d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffffda46
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffec42c
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff7200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5c00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff4f00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe2600
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff30000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd30101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffad0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa70f0e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff903022
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb93936
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8a230d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff801c0e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff79200f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd62803
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe6300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff6b00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff7600
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff7100
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5f00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff3800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff1300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff60000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd70000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb10000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa00101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff85190d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb20002
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7e240f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6b2111
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6a2411
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc91d04
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffd3d00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe5400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5901
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5a02
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5902
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff5200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff3d00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff2000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe0700
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff20000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd10000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffae0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9d0201
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7f190b
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff910803
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff712611
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff3f3018
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff403219
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffaf1606
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff01e00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffa3800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe4400
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff4800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff4500
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff3700
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff2000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffe0b00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff80100
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe40000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc00000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa70000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff970603
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff752310
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff78200e
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6e2711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffff0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8f180a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffcf0900
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe91700
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff62200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffb2600
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffc2300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffc1900
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfffa0c00
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xfff30300
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe30000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc80000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffad0100
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa20000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff90150d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5c3616
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff5b3616
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff742610
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7c1e0d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff72220f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702510
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa70803
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc80200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd60800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe20900
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe70800
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe60500
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffe00200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffd30000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc00000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffae0101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa00000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa21313
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff852f21
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc64048
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffc53039
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff662d13
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9943
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff863a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff85170a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffab0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb30000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb90100
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffbe0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffbe0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb90001
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffb00101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa70101
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9d0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa60d0f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9a3a32
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff632c11
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff643217
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff752f1a
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6e2811
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff722510
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff633015
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff623115
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8b1108
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa60000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa60000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa50000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa40000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa20000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9f0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff9e0000
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa81315
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa13f39
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff783623
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff985645
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff98483a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702611
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff78200e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff78200e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702610
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff672d14
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff871409
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff990502
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa10404
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa30708
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa40e0f
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa61e1e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa73533
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff99443a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff763521
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffcd7e6a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xffa24f3d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff752a16
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff0
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff77210e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff79200e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff702711
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff4a3f19
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff51411d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff76210e
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff872316
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff913026
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff943b30
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff8f4235
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7f3d2a
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff511e06
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff642a07
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff7a321d
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff501200
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff581500
+bl DrawPixel
+add r1,#1
+
+ldr r2,=0xff6f2711
+bl DrawPixel
+add r1,#1
+
+mov r1,r6
+add r0,#1
+
