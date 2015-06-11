@@ -52,6 +52,9 @@ uint32_t firstPass(FILE *fp, map_t *labelMap) {
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         preprocessLine(buf);
+        /*
+         * Ignore empty line
+         */
         if (strlen(buf) != 0) {
             if (isLabel(buf)) {
                 buf[strlen(buf) - 1] = '\0';
@@ -75,6 +78,9 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
     char buf[MAX_LINE_LENGTH];
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         preprocessLine(buf);
+        /*
+         * Ignore empty line and label
+         */
         if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
             int typeLength = getTypeLength(tokens);
@@ -124,13 +130,22 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
  * head and tail spaces
  */
 void preprocessLine(char *buf) {
+    /*
+     * Remove '/n' at the end of line
+     */
     buf[strlen(buf) - 1] = '\0';
+    /*
+     * Ignore comments
+     */
     for (int i = 0; buf[i] != '\0'; i++) {
         if (buf[i] == ';' || buf[i] == '/' || buf[i] == '*') {
             buf[i] = '\0';
             break;
         }
     }
+    /*
+     * Remove space at the end of line
+     */
     if (strlen(buf) != 0) {
         for (int i = strlen(buf) - 1; i >= 0; i--) {
             if (buf[i] == ' ') {
@@ -140,6 +155,9 @@ void preprocessLine(char *buf) {
             }
         }
     }
+    /*
+     * Remove space at the start of line
+     */
     while (buf[0] == ' ') {
         for (int i = 0; buf[i] != '\0'; i++) {
             buf[i] = buf[i + 1];
@@ -170,7 +188,7 @@ char **tokenizer(char *buf) {
         if (token != NULL) {
             tokens[i] = malloc((strlen(token) + 1) * sizeof(char));
             strcpy(tokens[i], token);
-            token = strtok(NULL, " ,");
+            token = strtok(NULL, " ,{}");
         } else {
             tokens[i] = NULL;
         }

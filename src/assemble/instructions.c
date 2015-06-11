@@ -10,14 +10,16 @@
 #include "instructions.h"
 
 uint32_t setCond(uint32_t ins, char **tokens, map_t condMap);
-int hasDash(char *token);
-uint16_t getRegisterList(char **tokens);
+uint32_t setRegShift(uint32_t ins, char **tokens, map_t shiftMap, int pos);
+uint32_t setRegList(uint32_t ins, char **tokens);
 
 uint32_t dataProcessing(char **tokens, maps_t maps) {
     uint32_t ins = 0;
 
     ins = setCond(ins, tokens, maps.condMap);
-
+    /*
+     * Convert lsl Rn,<#expression> to mov Rn,Rn,lsl <#expression>
+     */
     if (!strcmp(tokens[0], "lsl")) {
         tokens[4] = tokens[2];
         tokens[3] = tokens[0];
@@ -34,7 +36,9 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
     int op2 = 3;
     uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
     uint32_t rn = strtol(tokens[2] + 1, NULL, 0);
-
+    /*
+     * Set rd, rn and S bit according to instruction
+     */
     if (!strcmp(tokens[0], "mov")) {
         rn = 0;
         op2 = 2;
@@ -50,6 +54,9 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
     ins |= isS << S_BIT;
 
     if (tokens[op2][0] == '#') {
+        /*
+         * Op2 is immediate value
+         */
         ins |= 1 << I_BIT;
         uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
         uint32_t immRotate = 0;
@@ -64,25 +71,18 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
         }
         if (!isRepresentable) {
             printf("Error: numeric constant not representable.\n");
+            exit(EXIT_FAILURE);
         } else {
             ins |= immValue << IMM_VALUE_POS;
             ins |= (immRotate / 2) << IMM_ROTATE_POS;
         }
     } else {
+        /*
+         * Op2 is register
+         */
         uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
         ins |= rm << RM_POS;
-        if (tokens[op2 + 1] != NULL) {
-            uint32_t shift = mapGet(&maps.shiftMap, tokens[op2 + 1]);
-            ins |= shift << SHIFT_TYPE_POS;
-            if (tokens[op2 + 2][0] == '#') {
-                uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                ins |= shiftValue << SHIFT_VALUE_POS;
-            } else {
-                uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                ins |= rs << RS_POS;
-                ins |= 0x1 << REG_SHIFT_CONST_POS;
-            }
-        }
+        ins = setRegShift(ins, tokens, maps.shiftMap, op2 + 1);
     }
     return ins;
 }
@@ -92,7 +92,7 @@ uint32_t multiply(char **tokens, maps_t maps) {
 
     ins = setCond(ins, tokens, maps.condMap);
     /*
-     * In case of mla function: set bit A and Rn register
+     * Set A bit and Rn register for mla
      */
     if (!strcmp(tokens[0], "mla")) {
         //mla
@@ -101,7 +101,7 @@ uint32_t multiply(char **tokens, maps_t maps) {
         ins |= rn << MULTIPLY_RN_POS;
     }
     /*
-     * Get values of registers
+     * Set values of registers
      */
     uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
     uint32_t rm = strtol(tokens[2] + 1, NULL, 0);
@@ -110,7 +110,7 @@ uint32_t multiply(char **tokens, maps_t maps) {
     ins |= rm << RM_POS;
     ins |= rs << RS_POS;
     /*
-     * Set constant value 9 starting at position 4
+     * Set instruction constant
      */
     ins |= 0x9 << MULTIPLY_CONST_POS;
     return ins;
@@ -118,20 +118,23 @@ uint32_t multiply(char **tokens, maps_t maps) {
 
 uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
         uint32_t address, uint32_t *memoryLength) {
-    /*
-     * Put value of expression to the end of assembled program
-     * and uses its address with pc register to represent base register
-     * and calculated offset
-     */
     if (tokens[2][0] == '=') {
         uint32_t immValue = strtol(tokens[2] + 1, NULL, 0);
         if (immValue <= 0xff) {
+            /*
+             * Use mov instead if expression is less than or equal to 0xff
+             */
             tokens[0][0] = 'm';
             tokens[0][1] = 'o';
             tokens[0][2] = 'v';
             tokens[2][0] = '#';
             return dataProcessing(tokens, maps);
         } else {
+            /*
+             * Convert ldr Rd,<=expression> to ldr Rd,[PC,<#offest>] by
+             * put value of expression at the end of assembled program
+             * and use its address and PC register to calculated offset
+             */
             storeWord(memory, *memoryLength, immValue);
             uint32_t offset = *memoryLength - address - PC_AHEAD_BYTES;
             *memoryLength += BYTES_IN_WORD;
@@ -146,7 +149,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
 
     ins = setCond(ins, tokens, maps.condMap);
     /*
-     * Set type if the instruction
+     * Set L bit for ldr
      */
     if (!strcmp(tokens[0], "ldr")) {
         ins |= 1 << L_BIT;
@@ -171,17 +174,17 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
             /*
              * Offset is represented by numerical value
              */
-            int offset = strtol(tokens[3] + 1, NULL, 0);
+            int32_t offset = strtol(tokens[3] + 1, NULL, 0);
             if (offset < 0) {
                 offset = -offset;
                 isU = 0;
             }
             ins |= (uint32_t) offset << SINGLE_DATA_TRANSFER_OFFSET_POS;
         } else {
-            ins |= 1 << I_BIT;
             /*
-             * Offset represented as a register
+             * Offset is represented by a register
              */
+            ins |= 1 << I_BIT;
             if (tokens[3][0] == '-') {
                 isU = 0;
             }
@@ -195,33 +198,24 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
             /*
              * Register is shifted
              */
-            if (tokens[4] != NULL) {
-                uint32_t shift = mapGet(&maps.shiftMap, tokens[4]);
-                ins |= shift << SHIFT_TYPE_POS;
-                if (tokens[5][0] == '#') {
-                    uint32_t shiftValue = strtol(tokens[5] + 1, NULL, 0);
-                    ins |= shiftValue << SHIFT_VALUE_POS;
-                } else {
-                    uint32_t rs = strtol(tokens[5] + 1, NULL, 0);
-                    ins |= rs << RS_POS;
-                    ins |= 0x1 << REG_SHIFT_CONST_POS;
-                }
-            }
+            ins = setRegShift(ins, tokens, maps.shiftMap, 4);
         }
     }
     ins |= isU << U_BIT;
-
+    /*
+     * Set instruction constant
+     */
     ins |= 0x1 << SINGLE_DATA_TRANSFER_CONST_POS;
     return ins;
 }
 
 uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     uint32_t ins = 0;
-    /*
-     * work out what cond should be
-     */
-    ins = setCond(ins, tokens, maps.condMap);
 
+    ins = setCond(ins, tokens, maps.condMap);
+    /*
+     * Set L bit for bl
+     */
     if (tokens[0][1] == 'l') {
         ins |= 1 << BRANCH_L_BIT;
     }
@@ -232,19 +226,45 @@ uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     uint32_t offset = ((lableAddress - address - PC_AHEAD_BYTES) << 6) >> 8;
     ins |= offset << BRANCH_OFFSET_POS;
     /*
-     * for bits 27-24
+     * Set instruction constant
      */
     ins |= 0x5 << BRANCH_CONST_POS;
     return ins;
 }
 
+/*
+ * Function sets cond code according to mnemonic and remove the mnemonic
+ */
 uint32_t setCond(uint32_t ins, char **tokens, map_t condMap) {
     int typeLength = getTypeLength(tokens);
     uint32_t cond = mapGet(&condMap, tokens[0] + typeLength);
     tokens[0][typeLength] = '\0';
-    return ins |= cond << COND_POS;
+    return ins | cond << COND_POS;
 }
 
+/*
+ * Function sets shift applied to Rm
+ */
+uint32_t setRegShift(uint32_t ins, char **tokens, map_t shiftMap, int pos) {
+    if (tokens[pos] != NULL) {
+        uint32_t shift = mapGet(&shiftMap, tokens[pos]);
+        ins |= shift << SHIFT_TYPE_POS;
+        pos++;
+        if (tokens[pos][0] == '#') {
+            uint32_t shiftValue = strtol(tokens[pos] + 1, NULL, 0);
+            ins |= shiftValue << SHIFT_VALUE_POS;
+        } else {
+            uint32_t rs = strtol(tokens[pos] + 1, NULL, 0);
+            ins |= rs << RS_POS;
+            ins |= 0x1 << REG_SHIFT_CONST_POS;
+        }
+    }
+    return ins;
+}
+
+/*
+ * Function returns instruction length without cond mnemonic
+ */
 int getTypeLength(char **tokens) {
     int typeLength = 3;
     if (tokens[0][0] == 'b') {
@@ -274,8 +294,7 @@ uint32_t bx(char **tokens, maps_t maps) {
 uint32_t pushPop(char **tokens, maps_t maps) {
     uint32_t ins = 0;
     ins = setCond(ins, tokens, maps.condMap);
-    uint32_t regList = getRegisterList(tokens);
-    ins |= regList;
+    ins = setRegList(ins, tokens);
     if (!strcmp(tokens[0], "push")) {
         ins |= 0x92d << PUSH_POP_CONST_POS;
     } else {
@@ -284,46 +303,22 @@ uint32_t pushPop(char **tokens, maps_t maps) {
     return ins;
 }
 
-int hasDash(char *token) {
-    while (*token != '\0') {
-        if (*token == '-') {
-            return 1;
-        }
-        ++token;
-    }
-    return 0;
-}
-
-uint16_t getRegisterList(char **tokens) {
-    uint16_t regList = 0; // List of registers to be loaded/stored (1 means yes)
-    int i = 1; //Start token
-
-    while (1) {
-        if (tokens[i] == NULL) {
-            break;
-        }
-
-        if (hasDash(tokens[i])) {
-            char *delim = "{}- ";
-            char *tok = strtok(tokens[i], delim);
-
-            int start = strtol(tok + 1, NULL, 0);
-            tok = strtok(NULL, delim);
-            printf("%s\n", tok);
-            int end = strtol(tok + 1, NULL, 0);
-            for (int j = start; j <= end; j++) {
-                regList |= (1 << j);
+/*
+ * Function sets register list for pop and push instructions
+ * 0-15 bits are set corresponding for r0-15
+ */
+uint32_t setRegList(uint32_t ins, char **tokens) {
+    for (int i = 1; tokens[i] != NULL; i++) {
+        if (tokens[i][2] == '-') {
+            uint32_t startReg = strtol(tokens[i] + 1, NULL, 0);
+            uint32_t endReg = strtol(tokens[i] + 4, NULL, 0);
+            for (int reg = startReg; reg <= endReg; reg++) {
+                ins |= 1 << reg;
             }
         } else {
-            int reg;
-            if (tokens[i][0] == '{') {
-                reg = strtol(tokens[i] + 2, NULL, 0);
-            } else {
-                reg = strtol(tokens[i] + 1, NULL, 0);
-            }
-            regList |= 1 << reg;
+            uint32_t reg = strtol(tokens[i] + 1, NULL, 0);
+            ins |= 1 << reg;
         }
-        ++i;
     }
-    return regList;
+    return ins;
 }
