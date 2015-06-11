@@ -77,14 +77,14 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
         if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
             int typeLength = getTypeLength(tokens);
-            char* type = malloc((typeLength + 1) * sizeof(char));
+            char *type = malloc((typeLength + 1) * sizeof(char));
             strncpy(type, tokens[0], typeLength);
             type[typeLength] = '\0';
             int insType = mapGet(&maps.typeMap, type);
+            free(type);
             /*
              * Choose instruction set depending on the route value
              */
-            //TODO add a fancy enum
             uint32_t ins = 0;
             switch (insType) {
                 case 0:
