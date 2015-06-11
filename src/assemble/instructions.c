@@ -271,6 +271,19 @@ uint32_t bx(char **tokens, maps_t maps) {
     return ins;
 }
 
+uint32_t pushPop(char **tokens, maps_t maps) {
+    uint32_t ins = 0;
+    ins = setCond(ins, tokens, maps.condMap);
+    uint32_t regList = getRegisterList(tokens);
+    ins |= regList;
+    if (!strcmp(tokens[0], "push")) {
+        ins |= 0x92d << PUSH_POP_CONST_POS;
+    } else {
+        ins |= 0x8bd << PUSH_POP_CONST_POS;
+    }
+    return ins;
+}
+
 int hasDash(char *token) {
     while (*token != '\0') {
         if (*token == '-') {
@@ -313,17 +326,4 @@ uint16_t getRegisterList(char **tokens) {
         ++i;
     }
     return regList;
-}
-
-uint32_t pushPop(char **tokens, maps_t maps) {
-    uint32_t ins = 0;
-    ins = setCond(ins, tokens, maps.condMap);
-    uint32_t regList = getRegisterList(tokens);
-    ins |= regList;
-    if (!strcmp(tokens[0], "push")) {
-        ins |= 0x92d << PUSH_POP_CONST_POS;
-    } else {
-        ins |= 0x8bd << PUSH_POP_CONST_POS;
-    }
-    return ins;
 }

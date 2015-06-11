@@ -12,9 +12,6 @@ typedef struct assemble_maps {
     map_t labelMap;
 } maps_t;
 
-/*
- * Initializition of necessary maps
- */
 maps_t initMaps(void);
 void destroyMaps(maps_t maps);
 

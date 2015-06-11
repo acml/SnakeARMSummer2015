@@ -59,7 +59,7 @@ uint32_t mapGet(map_t *m, char *string) {
     map_e *elem = m->head;
     while (strcmp(elem->string, string)) {
         if (elem->next == NULL) {
-            printf("%s not found", string);
+            printf("%s not found in map.\n", string);
             exit(EXIT_FAILURE);
         }
         elem = elem->next;

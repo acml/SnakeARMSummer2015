@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "binarywriter.h"
 #include "definitions.h"
+#include "binarywriter.h"
 
 /*
- * Function writes memory positions and related data from the given file
+ * Function writes data in memory positions to the given file
  */
 void writeBinary(char **argv, uint8_t *memory, uint32_t memoryLength) {
     FILE *fp = fopen(argv[2], "wb");
@@ -23,7 +23,7 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t memoryLength) {
 }
 
 /*
- * Function stores given word(encoded instruction) to the memory
+ * Function stores given word (encoded instruction or data) to the memory
  */
 void storeWord(uint8_t *memory, uint32_t address, uint32_t word) {
     for (int i = 0; i < BYTES_IN_WORD; i++) {

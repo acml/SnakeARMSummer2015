@@ -3,6 +3,9 @@
 #include "map.h"
 #include "maps.h"
 
+/*
+ * Initialisation of necessary maps
+ */
 map_t initTypeMap(void);
 map_t initCondMap(void);
 map_t initOpcodeMap(void);
@@ -27,7 +30,7 @@ void destroyMaps(maps_t maps) {
 }
 
 /*
- * TODO:
+ * Maps instructions to different types
  */
 map_t initTypeMap(void) {
     map_t typeMap;
@@ -53,7 +56,7 @@ map_t initTypeMap(void) {
 
     mapPut(&typeMap, "b", 3);
 
-//############~Exetension~############
+    //##########~Extension~##########
     mapPut(&typeMap, "bl", 3);
     mapPut(&typeMap, "bx", 4);
     mapPut(&typeMap, "push", 5);
@@ -63,7 +66,7 @@ map_t initTypeMap(void) {
 }
 
 /*
- * TODO:
+ * Maps condition mnemonics to their codes
  */
 map_t initCondMap(void) {
     map_t condMap;
@@ -88,7 +91,7 @@ map_t initCondMap(void) {
 }
 
 /*
- * TODO:
+ * Maps opcode mnemonics to their codes
  */
 map_t initOpcodeMap(void) {
     map_t opcodeMap;
@@ -107,7 +110,7 @@ map_t initOpcodeMap(void) {
 }
 
 /*
- * TODO:
+ * Maps shift type mnemonics to their codes
  */
 map_t initShiftMap(void) {
     map_t shiftMap;

@@ -10,6 +10,9 @@
 #include "binarywriter.h"
 #include "twopasses.h"
 
+/*
+ * Principle functions for performing the assembly using two passes
+ */
 uint32_t firstPass(FILE *fp, map_t *labelMap);
 uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
         uint32_t programLength);
@@ -19,7 +22,8 @@ char **tokenizer(char *buf);
 void freeTokens(char **tokens);
 
 /*
- * TODO:
+ * Function performs two passes on the given source code to assemble it,
+ * store the result memory and return the length of used memory
  */
 uint32_t assembly(char **argv, uint8_t *memory) {
     FILE *fp = fopen(argv[1], "r");
@@ -69,9 +73,6 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
         uint32_t programLength) {
     uint32_t address = 0;
     char buf[MAX_LINE_LENGTH];
-    /*
-     * Split code to the lines ignoring labels
-     */
     while (fgets(buf, sizeof(buf), fp) != NULL) {
         preprocessLine(buf);
         if (strlen(buf) != 0 && !isLabel(buf)) {
@@ -83,7 +84,7 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
             int insType = mapGet(&maps.typeMap, type);
             free(type);
             /*
-             * Choose instruction set depending on the route value
+             * Choose instruction set depending on the type value
              */
             uint32_t ins = 0;
             switch (insType) {
@@ -118,6 +119,10 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
     return programLength;
 }
 
+/*
+ * Function preprocess a line to ignore empty lines, comments,
+ * head and tail spaces
+ */
 void preprocessLine(char *buf) {
     buf[strlen(buf) - 1] = '\0';
     for (int i = 0; buf[i] != '\0'; i++) {
@@ -143,14 +148,14 @@ void preprocessLine(char *buf) {
 }
 
 /*
- * Function returns 1 if the given line of the code includes label
+ * Function returns 1 if the given line of the code is label
  */
 int isLabel(char *buf) {
     return buf[strlen(buf) - 1] == ':';
 }
 
 /*
- * Function returns lines of code split to the tokens
+ * Function returns lines of code split to tokens
  */
 char **tokenizer(char *buf) {
     char **tokens = malloc(sizeof(char *) * MAX_TOKEN_LENGTH);
