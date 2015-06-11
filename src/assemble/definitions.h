@@ -1,5 +1,6 @@
-#ifndef DEFINITIONS
-#define DEFINITIONS
+#ifndef DEFINITIONS_H
+#define DEFINITIONS_H
+
 /*
  * CONSTANTS:
  *
@@ -11,10 +12,11 @@
 #define BITS_IN_BYTE 8
 #define BYTES_IN_WORD 4
 
-#define PC_AHEAD_BYTES 8
-#define BRANCH_CONST_POS 25
-#define BRANCH_OFFSET_POS 0
-#define BRANCH_L_BIT 24
+#define COND_POS 28
+#define RN_POS 16
+#define RD_POS 12
+#define RS_POS 8
+#define RM_POS 0
 
 /*
  * Constants for representing specific bits positions
@@ -25,6 +27,17 @@
 #define P_BIT 24
 #define U_BIT 23
 #define L_BIT 20
+
+/*
+ * Constants for shifting bits positions access
+ */
+#define IMM_ROTATE_POS 8
+#define IMM_VALUE_POS 0
+#define SHIFT_VALUE_POS 7
+#define SHIFT_TYPE_POS 5
+#define REG_SHIFT_CONST_POS 4
+
+#define OPCODE_POS 21
 
 /*
  * Constants for register positions in multiply instruction
@@ -38,26 +51,17 @@
  */
 #define SINGLE_DATA_TRANSFER_CONST_POS 26
 #define MAX_OFFSET_LENGTH 7
-#define COND_POS 28
-#define OPCODE_POS 21
-#define RN_POS 16
-#define RD_POS 12
-#define RS_POS 8
-#define RM_POS 0
-#define OFFSET_POS 0
+#define SINGLE_DATA_TRANSFER_OFFSET_POS 0
 
-/*
- * Constants for shifting bits positions accesss
- */
-#define SHIFT_TYPE_POS 5
-#define SHIFT_VALUE_POS 7
-#define REG_SHIFT_CONST_POS 4
-#define IMM_ROTATE_POS 8
-#define IMM_VALUE_POS 0
+#define PC_AHEAD_BYTES 8
+#define BRANCH_CONST_POS 25
+#define BRANCH_OFFSET_POS 0
+#define BRANCH_L_BIT 24
 
 /*
  * Extension constants
  */
 #define BX_CONST_POS 4
 #define PUSH_POP_CONST_POS 16
+
 #endif

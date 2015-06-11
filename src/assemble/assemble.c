@@ -1,16 +1,15 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 
 #include "definitions.h"
-#include "assemblyFunctions.h"
-#include "binaryWriter.h"
+#include "twopasses.h"
+#include "binarywriter.h"
+
 /*
  * FUNCTION IMPLEMENTATION:
  */
-
 int main(int argc, char **argv) {
     if (argc < 3) {
         printf("Input file and/or output file not specified.\n");
@@ -28,6 +27,5 @@ int main(int argc, char **argv) {
     writeBinary(argv, memory, memoryLength);
 
     free(memory);
-    return 0;
+    return EXIT_SUCCESS;
 }
-

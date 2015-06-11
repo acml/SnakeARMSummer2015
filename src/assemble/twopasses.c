@@ -1,15 +1,23 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 
 #include "definitions.h"
-#include "mapStructs.h"
 #include "map.h"
-#include "assemblyFunctions.h"
+#include "maps.h"
 #include "instructions.h"
-#include "binaryWriter.h"
+#include "binarywriter.h"
+#include "twopasses.h"
+
+uint32_t firstPass(FILE *fp, map_t *labelMap);
+uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
+        uint32_t programLength);
+void preprocessLine(char *buf);
+int isLabel(char *buf);
+char **tokenizer(char *buf);
+void freeTokens(char **tokens);
+
 /*
  * TODO:
  */
@@ -107,11 +115,8 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
             address += BYTES_IN_WORD;
         }
     }
-
     return programLength;
 }
-
-
 
 void preprocessLine(char *buf) {
     buf[strlen(buf) - 1] = '\0';

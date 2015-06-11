@@ -1,37 +1,89 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 
 #include "definitions.h"
-#include "mapStructs.h"
 #include "map.h"
-
+#include "maps.h"
+#include "binarywriter.h"
 #include "instructions.h"
-#include "binaryWriter.h"
 
-uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
+uint32_t setCond(uint32_t ins, char **tokens, map_t condMap);
+int hasDash(char *token);
+uint16_t getRegisterList(char **tokens);
 
+uint32_t dataProcessing(char **tokens, maps_t maps) {
     uint32_t ins = 0;
-    /*
-     * work out what cond should be
-     */
+
     ins = setCond(ins, tokens, maps.condMap);
 
-    if (tokens[0][1] == 'l') {
-        ins |= 1 << BRANCH_L_BIT;
+    if (!strcmp(tokens[0], "lsl")) {
+        tokens[4] = tokens[2];
+        tokens[3] = tokens[0];
+        tokens[0] = malloc((strlen("mov") + 1) * sizeof(char));
+        strcpy(tokens[0], "mov");
+        tokens[2] = malloc((strlen(tokens[1]) + 1) * sizeof(char));
+        strcpy(tokens[2], tokens[1]);
     }
-    /*
-     * calculate the offset
-     */
-    uint32_t lableAddress = mapGet(&maps.labelMap, tokens[1]);
-    uint32_t offset = ((lableAddress - address - PC_AHEAD_BYTES) << 6) >> 8;
-    ins |= offset << BRANCH_OFFSET_POS;
-    /*
-     * for bits 27-24
-     */
-    ins |= 0x5 << BRANCH_CONST_POS;
+
+    uint32_t opcode = mapGet(&maps.opcodeMap, tokens[0]);
+    ins |= opcode << OPCODE_POS;
+
+    int isS = 0;
+    int op2 = 3;
+    uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
+    uint32_t rn = strtol(tokens[2] + 1, NULL, 0);
+
+    if (!strcmp(tokens[0], "mov")) {
+        rn = 0;
+        op2 = 2;
+    } else if (!strcmp(tokens[0], "tst") || !strcmp(tokens[0], "teq")
+            || !strcmp(tokens[0], "cmp")) {
+        rn = rd;
+        rd = 0;
+        isS = 1;
+        op2 = 2;
+    }
+    ins |= rd << RD_POS;
+    ins |= rn << RN_POS;
+    ins |= isS << S_BIT;
+
+    if (tokens[op2][0] == '#') {
+        ins |= 1 << I_BIT;
+        uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
+        uint32_t immRotate = 0;
+        int isRepresentable = 0;
+        while (!isRepresentable && immRotate <= 30) {
+            if (immValue <= 0xFF) {
+                isRepresentable = 1;
+            } else {
+                immValue = (immValue << 2) | (immValue >> 30);
+                immRotate += 2;
+            }
+        }
+        if (!isRepresentable) {
+            printf("Error: numeric constant not representable.\n");
+        } else {
+            ins |= immValue << IMM_VALUE_POS;
+            ins |= (immRotate / 2) << IMM_ROTATE_POS;
+        }
+    } else {
+        uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
+        ins |= rm << RM_POS;
+        if (tokens[op2 + 1] != NULL) {
+            uint32_t shift = mapGet(&maps.shiftMap, tokens[op2 + 1]);
+            ins |= shift << SHIFT_TYPE_POS;
+            if (tokens[op2 + 2][0] == '#') {
+                uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
+                ins |= shiftValue << SHIFT_VALUE_POS;
+            } else {
+                uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
+                ins |= rs << RS_POS;
+                ins |= 0x1 << REG_SHIFT_CONST_POS;
+            }
+        }
+    }
     return ins;
 }
 
@@ -124,7 +176,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
                 offset = -offset;
                 isU = 0;
             }
-            ins |= (uint32_t) offset << OFFSET_POS;
+            ins |= (uint32_t) offset << SINGLE_DATA_TRANSFER_OFFSET_POS;
         } else {
             ins |= 1 << I_BIT;
             /*
@@ -163,77 +215,26 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
     return ins;
 }
 
-uint32_t dataProcessing(char **tokens, maps_t maps) {
+uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     uint32_t ins = 0;
-
+    /*
+     * work out what cond should be
+     */
     ins = setCond(ins, tokens, maps.condMap);
 
-    if (!strcmp(tokens[0], "lsl")) {
-        tokens[4] = tokens[2];
-        tokens[3] = tokens[0];
-        tokens[0] = malloc((strlen("mov") + 1) * sizeof(char));
-        strcpy(tokens[0], "mov");
-        tokens[2] = malloc((strlen(tokens[1]) + 1) * sizeof(char));
-        strcpy(tokens[2], tokens[1]);
+    if (tokens[0][1] == 'l') {
+        ins |= 1 << BRANCH_L_BIT;
     }
-
-    uint32_t opcode = mapGet(&maps.opcodeMap, tokens[0]);
-    ins |= opcode << OPCODE_POS;
-
-    int isS = 0;
-    int op2 = 3;
-    uint32_t rd = strtol(tokens[1] + 1, NULL, 0);
-    uint32_t rn = strtol(tokens[2] + 1, NULL, 0);
-
-    if (!strcmp(tokens[0], "mov")) {
-        rn = 0;
-        op2 = 2;
-    } else if (!strcmp(tokens[0], "tst") || !strcmp(tokens[0], "teq")
-            || !strcmp(tokens[0], "cmp")) {
-        rn = rd;
-        rd = 0;
-        isS = 1;
-        op2 = 2;
-    }
-    ins |= rd << RD_POS;
-    ins |= rn << RN_POS;
-    ins |= isS << S_BIT;
-
-    if (tokens[op2][0] == '#') {
-        ins |= 1 << I_BIT;
-        uint32_t immValue = strtol(tokens[op2] + 1, NULL, 0);
-        uint32_t immRotate = 0;
-        int isRepresentable = 0;
-        while (!isRepresentable && immRotate <= 30) {
-            if (immValue <= 0xFF) {
-                isRepresentable = 1;
-            } else {
-                immValue = (immValue << 2) | (immValue >> 30);
-                immRotate += 2;
-            }
-        }
-        if (!isRepresentable) {
-            printf("Error: numeric constant not representable.\n");
-        } else {
-            ins |= immValue << IMM_VALUE_POS;
-            ins |= (immRotate / 2) << IMM_ROTATE_POS;
-        }
-    } else {
-        uint32_t rm = strtol(tokens[op2] + 1, NULL, 0);
-        ins |= rm << RM_POS;
-        if (tokens[op2 + 1] != NULL) {
-            uint32_t shift = mapGet(&maps.shiftMap, tokens[op2 + 1]);
-            ins |= shift << SHIFT_TYPE_POS;
-            if (tokens[op2 + 2][0] == '#') {
-                uint32_t shiftValue = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                ins |= shiftValue << SHIFT_VALUE_POS;
-            } else {
-                uint32_t rs = strtol(tokens[op2 + 2] + 1, NULL, 0);
-                ins |= rs << RS_POS;
-                ins |= 0x1 << REG_SHIFT_CONST_POS;
-            }
-        }
-    }
+    /*
+     * calculate the offset
+     */
+    uint32_t lableAddress = mapGet(&maps.labelMap, tokens[1]);
+    uint32_t offset = ((lableAddress - address - PC_AHEAD_BYTES) << 6) >> 8;
+    ins |= offset << BRANCH_OFFSET_POS;
+    /*
+     * for bits 27-24
+     */
+    ins |= 0x5 << BRANCH_CONST_POS;
     return ins;
 }
 

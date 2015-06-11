@@ -1,11 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
-#include <assert.h>
 
+#include "binarywriter.h"
 #include "definitions.h"
-#include "binaryWriter.h"
 
 /*
  * Function writes memory positions and related data from the given file
@@ -23,7 +21,6 @@ void writeBinary(char **argv, uint8_t *memory, uint32_t memoryLength) {
 
     fclose(fp);
 }
-
 
 /*
  * Function stores given word(encoded instruction) to the memory

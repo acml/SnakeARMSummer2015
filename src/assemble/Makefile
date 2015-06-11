@@ -9,18 +9,18 @@ CFLAGS  = -Wall -g -D_POSIX_SOURCE -D_BSD_SOURCE -std=c99 -Werror -pedantic
 
 all: assemble
 
-assemble: assemble.o map.o assemblyFunctions.o instructions.o binaryWriter.o
-
+assemble: assemble.o map.o maps.o twopasses.o instructions.o binarywriter.o
 
 map.o : map.h
 
-assemblyFunctions.o: assemblyFunctions.h
+maps.o : maps.h
+
+twopasses.o: twopasses.h
 
 instructions.o: instructions.h
 
-binaryWriter.o: binaryWriter.h
+binarywriter.o: binarywriter.h
 
 clean:
 	rm -f $(wildcard *.o)
 	rm -f assemble
-
