@@ -15,6 +15,8 @@
 
 #ignore junk files from compiling C code
 *.o
+src/assemble/assemble
+src/emulate/emulate
 
 #ignore junk files from compiling Haskell code
 *.hi
@@ -31,3 +33,7 @@
 *.nav
 *.toc
 
+#ignore eclipse junk files
+*.cproject
+*.project
+*.settings
