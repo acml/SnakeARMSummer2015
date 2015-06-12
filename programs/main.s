@@ -1,3 +1,10 @@
+/*
+ *########################SNAKE GAME###########
+ *############Created by: group 22 ############
+ *#########Imperial College London#############
+ */
+
+
 
 b main
 
@@ -75,7 +82,7 @@ main:
     mov r5,#16
     mov r4,#16
     mov r10,#0
-    mov r11,#128
+    mov r11,#0x1000
 
        /*
         * Draw initial background
@@ -108,7 +115,6 @@ loop1$:
     bl Move
     /*
      * store updated values
-     *
      */
     mov r4,r3
     mov r6,r0
@@ -130,8 +136,8 @@ loop1$:
 
     mov r3,r5
     mov r2,#0
-
-    tst r11,#0x3f
+    ldr r12,=0xfff
+    tst r11,r12
     subne r11,r11,#1
     bleq Move
     /*
@@ -143,7 +149,7 @@ loop1$:
     pop {r0-r3}
 
 
-    tst r10,#64
+    tst r11,#0x2000
     bne reset$
 
     /*
@@ -203,7 +209,7 @@ loop1$:
     /*
      *    Generate food
      */
-    tst r11,#128
+    tst r11,#0x1000
     bne GenerateFood$
 
     b loop1$
@@ -231,7 +237,7 @@ reset$:
     mov r5,#16
     mov r4,#16
     mov r10,#0
-    mov r11,#128
+    mov r11,#0x1000
     b loop1$
 
 
@@ -297,7 +303,7 @@ GenerateFood$:
     bl DrawRectangle
     pop {r0-r4}
 
-    sub r11,r11,#128
+    sub r11,r11,#0x1000
     pop {r0,r1,r5,r6}
     b loop1$
 
@@ -368,7 +374,10 @@ drawing$:
      * Check if there was some input
      */
     tst r10,r10
-    movne r3,r10
+
+    bne checkInput$
+    
+    checkInputBack$:
     mov r10,#0
 
 
@@ -379,6 +388,30 @@ drawing$:
 
     b directionTests$
 
+checkInput$:
+    /* 
+     * In case that the input makes snake turn on itself (do 180 degree turn)
+     * this function makes such input ignored
+     */
+    cmp r3,#4
+    cmpeq r10,#16
+    beq checkInputBack$
+
+    cmp r3,#8
+    cmpeq r10,#32
+    beq checkInputBack$
+
+    cmp r3,#16
+    cmpeq r10,#4
+    beq checkInputBack$
+
+    cmp r3,#32
+    cmpeq r10,#8
+    beq checkInputBack$
+
+    mov r3,r10
+
+    b checkInputBack$
 
 erasing$:
     push {r0-r2}
@@ -432,20 +465,20 @@ writeBlock:
      * Check boundaries
      */
     tst r0,r0
-    moveq r10,#64
+    moveq r11,#0x2000
 
     cmp r0,#0x17
-    moveq r10,#64
+    moveq r11,#0x2000
 
 
 
     mov r1,r1,lsr #5
 
     tst r1,r1
-    moveq r10,#64
+    moveq r11,#0x2000
 
     cmp r1,#0x1f
-    moveq r10,#64
+    moveq r11,#0x2000
 
     mov r2,#32
     mla r0,r0,r2,r1
@@ -458,14 +491,14 @@ writeBlock:
      * Check collision
      */
     tst r2,#1
-    movne r10,#64
+    movne r11,#0x2000
 
     /*
      * Check food
      */
     tst r2,#2
-    movne r11,#128
-    addne r11,r11,#32
+    movne r11,#0x1000
+    addne r11,r11,#128
 
 
     /*
