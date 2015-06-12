@@ -84,11 +84,10 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
         if (strlen(buf) != 0 && !isLabel(buf)) {
             char **tokens = tokenizer(buf);
             int typeLength = getTypeLength(tokens);
-            char *type = malloc((typeLength + 1) * sizeof(char));
+            char type[typeLength + 1];
             strncpy(type, tokens[0], typeLength);
             type[typeLength] = '\0';
             int insType = mapGet(&maps.typeMap, type);
-            free(type);
             /*
              * Choose instruction set depending on the type value
              */
@@ -131,9 +130,11 @@ uint32_t secondPass(FILE *fp, maps_t maps, uint8_t *memory,
  */
 void preprocessLine(char *buf) {
     /*
-     * Remove '/n' at the end of line
+     * Remove '\n' at the end of line
      */
-    buf[strlen(buf) - 1] = '\0';
+    if (buf[strlen(buf) - 1] == '\n') {
+        buf[strlen(buf) - 1] = '\0';
+    }
     /*
      * Ignore comments
      */
@@ -187,6 +188,10 @@ char **tokenizer(char *buf) {
     for (int i = 0; i < MAX_TOKEN_LENGTH; i++) {
         if (token != NULL) {
             tokens[i] = malloc((strlen(token) + 1) * sizeof(char));
+            if (tokens[i] == NULL) {
+                perror("tokenizer");
+                exit(EXIT_FAILURE);
+            }
             strcpy(tokens[i], token);
             token = strtok(NULL, " ,{}");
         } else {

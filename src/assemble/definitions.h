@@ -8,7 +8,7 @@
  */
 #define MEMORY_SIZE 65536
 #define MAX_LINE_LENGTH 512
-#define MAX_TOKEN_LENGTH 10
+#define MAX_TOKEN_LENGTH 17
 #define BITS_IN_BYTE 8
 #define BYTES_IN_WORD 4
 

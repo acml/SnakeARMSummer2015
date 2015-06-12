@@ -24,8 +24,16 @@ uint32_t dataProcessing(char **tokens, maps_t maps) {
         tokens[4] = tokens[2];
         tokens[3] = tokens[0];
         tokens[0] = malloc((strlen("mov") + 1) * sizeof(char));
+        if (tokens[0] == NULL) {
+            perror("dataProcessing");
+            exit(EXIT_FAILURE);
+        }
         strcpy(tokens[0], "mov");
         tokens[2] = malloc((strlen(tokens[1]) + 1) * sizeof(char));
+        if (tokens[2] == NULL) {
+            perror("dataProcessing");
+            exit(EXIT_FAILURE);
+        }
         strcpy(tokens[2], tokens[1]);
     }
 
@@ -140,8 +148,16 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
             *memoryLength += BYTES_IN_WORD;
             free(tokens[2]);
             tokens[2] = malloc((strlen("[r15") + 1) * sizeof(char));
+            if (tokens[2] == NULL) {
+                perror("singleDataTransfer");
+                exit(EXIT_FAILURE);
+            }
             strcpy(tokens[2], "[r15");
             tokens[3] = malloc(MAX_OFFSET_LENGTH * sizeof(char));
+            if (tokens[3] == NULL) {
+                perror("singleDataTransfer");
+                exit(EXIT_FAILURE);
+            }
             sprintf(tokens[3], "#%d]", offset);
         }
     }
