@@ -223,7 +223,7 @@ uint32_t singleDataTransfer(char **tokens, maps_t maps, uint8_t *memory,
 }
 
 /*
- * Calcluates the offset using the current address and label map
+ * Calculates the offset using the current address and label map
  */
 uint32_t branch(char **tokens, maps_t maps, uint32_t address) {
     uint32_t ins = 0;
