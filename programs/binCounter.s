@@ -19,11 +19,6 @@ str r1,[r0,#8] ;set GPIO 24 as output pin
 mov r3,#0 ;the count
 
 loop:
-mov r4,#0xF00000
-wait:
-sub r4,r4,#1
-cmp r4,#0
-bne wait
 
 mov r2,r1,lsl #4
 tst r3,r1 ;test whether bit 0 is 0 or 1
@@ -53,5 +48,11 @@ strne r2,[r0,#28]
 add r3,r3,#1
 cmp r3,#32 ;reset to 0 if counter overflowed
 moveq r3,#0
+
+mov r4,#0xF00000
+wait:
+sub r4,r4,#1
+cmp r4,#0
+bne wait
 
 b loop
