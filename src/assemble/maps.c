@@ -1,6 +1,3 @@
-#include <stdint.h>
-
-#include "map.h"
 #include "maps.h"
 
 /*

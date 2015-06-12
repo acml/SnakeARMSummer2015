@@ -1,6 +1,8 @@
 #ifndef MAPS_H
 #define MAPS_H
 
+#include "map.h"
+
 /*
  * Holds all maps necessary for assemble
  */

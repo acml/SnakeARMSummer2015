@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
-#include "definitions.h"
 #include "binarywriter.h"
+#include "definitions.h"
 
 /*
  * Function writes data in memory positions to the given file

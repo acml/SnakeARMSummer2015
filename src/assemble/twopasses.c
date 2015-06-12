@@ -1,14 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 
-#include "definitions.h"
-#include "map.h"
-#include "maps.h"
+#include "twopasses.h"
 #include "instructions.h"
 #include "binarywriter.h"
-#include "twopasses.h"
+#include "maps.h"
+#include "definitions.h"
 
 /*
  * Principle functions for performing the assembly using two passes

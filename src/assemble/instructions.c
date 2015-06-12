@@ -1,13 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 
-#include "definitions.h"
-#include "map.h"
-#include "maps.h"
-#include "binarywriter.h"
 #include "instructions.h"
+#include "binarywriter.h"
+#include "definitions.h"
 
 uint32_t setCond(uint32_t ins, char **tokens, map_t condMap);
 uint32_t setRegShift(uint32_t ins, char **tokens, map_t shiftMap, int pos);

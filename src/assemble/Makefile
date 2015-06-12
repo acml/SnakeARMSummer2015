@@ -5,22 +5,23 @@ CFLAGS  = -Wall -g -D_POSIX_SOURCE -D_BSD_SOURCE -std=c99 -Werror -pedantic
 
 .PHONY: all clean
 
-####main executable#######################
-
 all: assemble
 
-assemble: assemble.o map.o maps.o twopasses.o instructions.o binarywriter.o
+# Build rule for the final executable
+assemble: twopasses.o instructions.o binarywriter.o maps.o map.o
 
-map.o : map.h
+# Build rules for the .o files
+twopasses.o: twopasses.h instructions.h binarywriter.h maps.h definitions.h
 
-maps.o : maps.h
+instructions.o: instructions.h binarywriter.h maps.h definitions.h
 
-twopasses.o: twopasses.h
+binarywriter.o: binarywriter.h definitions.h
 
-instructions.o: instructions.h
+maps.o: maps.h map.h
 
-binarywriter.o: binarywriter.h
+map.o: map.h
 
+# Rule to clean generated files
 clean:
 	rm -f $(wildcard *.o)
 	rm -f assemble

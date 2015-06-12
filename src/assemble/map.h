@@ -1,6 +1,8 @@
 #ifndef MAP_H
 #define MAP_H
 
+#include <stdint.h>
+
 /*
  * Holds an element of string to integer map
  */

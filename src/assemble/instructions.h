@@ -1,6 +1,8 @@
 #ifndef INSTRUCTIONS_H
 #define INSTRUCTIONS_H
 
+#include "maps.h"
+
 /*
  * Functions representing subsets of ARM instruction set
  */
