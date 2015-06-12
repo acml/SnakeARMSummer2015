@@ -1,4 +1,10 @@
+#include <string.h>
+
 #include "pipeline.h"
+#include "instructions.h"
+
+ins_t insType(uint32_t ins);
+int checkCond(state_t *state);
 
 /*
  * Checks if the instruction has been decoded yet
@@ -53,14 +59,13 @@ void decode(state_t *state) {
     }
 
     decoded_t *decoded = state->decoded;
-    
+
     //clears the data currently pointed to before using it
     memset(decoded, 0, sizeof(decoded_t));
     uint32_t instruction = state->fetched;
 
-    //sets the instruction field
+    //sets the instruction type field
     decoded->ins = insType(instruction);
-
 
     //sets the fields which require only individual bits
     decoded->isRegShiftValue = maskBits(instruction, 4, 4);
@@ -71,7 +76,7 @@ void decode(state_t *state) {
     decoded->isU = maskBits(instruction, U_BIT, U_BIT);
     decoded->isL = maskBits(instruction, L_BIT, L_BIT);
 
-    //sets the fields which are larger portions of the instruction
+    //sets the fields which are registers
     if (decoded->ins != BRANCH) {
         decoded->rd = maskBits(instruction, 15, 12);
         decoded->rn = maskBits(instruction, 19, 16);
@@ -95,8 +100,8 @@ void decode(state_t *state) {
     decoded->opcode = maskBits(instruction, 24, 21);
     decoded->shift = maskBits(instruction, 6, 5);
     decoded->shiftValue = maskBits(instruction, 11, 7);
-    
-    //does the shifting at this stage (if needed), for ease of mind later on
+
+    //does the shifting at this stage if needed
     //if no need to shift, just passes the value
     if (decoded->ins == DATA_PROCESSING) {
         uint32_t data = maskBits(instruction, 7, 0);
@@ -105,20 +110,18 @@ void decode(state_t *state) {
     } else {
         decoded->immValue = maskBits(instruction, 11, 0);
     }
-    
+
     //calculates the offset for the branch instruction
     uint32_t data = maskBits(instruction, 23, 0);
     decoded->branchOffset = shiftData(shiftData(data, LSL, 8), ASR, 6);
-    
-    //informs pipeline that the instruction was executed
+
+    //informs pipeline that the instruction was decoded
     state->isDecoded = 1;
 }
 
-
 /*
- * Returns the instruction at address stored in PC and casts it to 32bit int.
+ * Returns the instruction at address stored in PC.
  * Also changes the state of pipeline so it know that instruction is fetched.
- * 
  */
 void fetch(state_t *state) {
     state->fetched = ((uint32_t *) state->memory)[state->registers[PC_REG]
@@ -128,7 +131,7 @@ void fetch(state_t *state) {
 
 /*
  * Increments the PC by number of bytes in word (moves PC to next address).
- */ 
+ */
 void incPC(state_t *state) {
     state->registers[PC_REG] += BYTES_IN_WORD;
 }

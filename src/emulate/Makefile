@@ -5,24 +5,23 @@ CFLAGS  = -Wall -g -D_POSIX_SOURCE -D_BSD_SOURCE -std=c99 -Werror -pedantic
 
 .PHONY: all clean
 
-####main executables#######################
-
 all: emulate
 
+# Build rule for the final executable
+emulate: pipeline.o instructions.o inputoutput.o utils.o
 
-emulate:  pipeline.o emulate.o utils.o instructions.o 
+# Build rules for the .o files
+emulate.o: pipeline.h inputoutput.h utils.h
 
-########################################
-
-pipeline.o: pipeline.h instructions.h
-
-emulate.o: pipeline.h utils.h 
+pipeline.o: pipeline.h instructions.h utils.h
 
 instructions.o: instructions.h utils.h
 
-utils.o: utils.h structs.h definitions.h
+inputoutput.o: inputoutput.h utils.h
 
+utils.o: utils.h definitions.h
 
+# Rule to clean generated files
 clean:
 	rm -f $(wildcard *.o)
 	rm -f emulate

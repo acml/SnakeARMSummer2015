@@ -1,10 +1,22 @@
-#ifndef DEFS_H
-#define DEFS_H
+#ifndef DEFINITIONS_H
+#define DEFINITIONS_H
 
+/*
+ * Constants for memory and registers
+ */
 #define BYTES_IN_WORD 4
 #define BITS_IN_WORD 32
-#define REGISTERS_COUNT 17
 #define MEMORY_SIZE 65536
+#define REGISTERS_COUNT 17
+#define SP_REG 13
+#define LR_REG 14
+#define PC_REG 15
+#define CPSR_REG 16
+#define PC_AHEAD_BYTES 8
+
+/*
+ * Constants for bit position
+ */
 #define TOP_BIT 31
 #define N_BIT 31
 #define Z_BIT 30
@@ -16,12 +28,6 @@
 #define P_BIT 24
 #define U_BIT 23
 #define L_BIT 20
-#define SP_REG 13
-#define LR_REG 14
-#define PC_REG 15
-#define CPSR_REG 16
-#define PC_AHEAD_BYTES 8
-
 
 /*
  * Enum that holds the type of instruction
@@ -35,7 +41,7 @@ typedef enum {
 } ins_t;
 
 /*
- * ENum that holds condition types for instruction execution
+ * Enum that holds condition types for instruction execution
  */
 typedef enum {
     EQ = 0,
@@ -64,7 +70,7 @@ typedef enum {
 } opcode_t;
 
 /*
- * Holds the shift types for shifter
+ * Enum that holds the shift types for shifter
  */
 typedef enum {
     LSL = 0,

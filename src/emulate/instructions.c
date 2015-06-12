@@ -1,80 +1,14 @@
+#include <stdio.h>
+#include <assert.h>
+
 #include "instructions.h"
 
-/*
- * It asserts that the shiftValue is smaller than the size of the word.
- * Returns the data shifted by shiftValue using a shift specified. 
- */ 
-uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue) {
-    assert(shiftValue < BITS_IN_WORD);
-    if (shiftValue == 0) {
-        return data;
-    }
-    switch (shift) {
-        case LSL:
-            data <<= shiftValue;
-            break;
-        case LSR:
-            data >>= shiftValue;
-            break;
-        case ASR:
-            data = (int32_t) data >> shiftValue;
-            break;
-        case ROR:
-            data = (data >> shiftValue) | (data << (BITS_IN_WORD - shiftValue));
-            break;
-    }
-    return data;
-}
+int isGpioAddress(uint32_t address);
 
 /*
- * Asserts that shiftValue is not longer than size of the word.
- * Returns the last bit discarded/rotated by the corresponding shift 
- * For left shift, it is BITS_IN_WORD - shiftvalue and for right 
- * shifts it is shiftvalue - 1.
- */
-int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
-    assert(shiftValue < BITS_IN_WORD);
-    if (shiftValue == 0) {
-        return 0;
-    }
-    int carryBit = 0;
-    switch (shift) {
-        case LSL:
-            carryBit = BITS_IN_WORD - shiftValue;
-            break;
-        case LSR:
-        case ASR:
-        case ROR:
-            carryBit = shiftValue - 1;
-            break;
-    }
-    return maskBits(data, carryBit, carryBit);
-}
-
-/*
- * Executes shift register function necessary for computing operand2. 
- * Returns the shift output struct containing shifted data and the carry bit.
- */
-shift_o shiftReg(state_t *state) {
-    decoded_t *decoded = state->decoded;
-
-    uint32_t shiftValue = decoded->shiftValue;
-    if (decoded->isRegShiftValue) {
-        shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
-    }
-    uint32_t data = state->registers[decoded->rm];
-
-    shift_o output;
-    output.data = shiftData(data, decoded->shift, shiftValue);
-    output.carry = shiftCarry(data, decoded->shift, shiftValue);
-    return output;
-}
-
-
-/*
- * Executes one of data processing instructions. Asserts that none of the 
+ * Executes one of data processing instructions. Asserts that none of the
  * registers involved is PC. Alters only CPSR flags in case of TST, CMP, TEQ.
- * In other cases it writes the resul to rd.
+ * In other cases it writes the result to rd.
  */
 void dataProcessing(state_t *state) {
     decoded_t *decoded = state->decoded;
@@ -128,7 +62,7 @@ void dataProcessing(state_t *state) {
     }
 
     //switches on the opcode once again
-    //determines when to set value
+    //determines when to writes the result to rd
     switch (decoded->opcode) {
         case TST:
         case TEQ:
@@ -139,7 +73,7 @@ void dataProcessing(state_t *state) {
             break;
     }
 
-    //sets the flags if told to do
+    //sets the flags if needed
     if (decoded->isS) {
         setFlag(state, carry, C_BIT);
         if (result == 0) {
@@ -181,42 +115,12 @@ void multiply(state_t *state) {
 }
 
 /*
- * Checks if the single data transfer is accessing one of GPIO adresses
- * If yes, it outputs the corresponding messagge
- * Returns 1 if it is a GPIO address and 0 if it is not.
- */
-static int checkGpioAddresses(uint32_t address) {
-	if(address == 0x20200028) {
-	    printf("PIN OFF\n");
-	    return 1;
-    }
-    if(address == 0x2020001C) {
-        printf("PIN ON\n");
-        return 1;
-    }
-    if(address == 0x20200000) {
-
-        printf("One GPIO pin from 0 to 9 has been accessed\n");
-        return 1;
-    }
-    if (address == 0x20200004) {
-        printf("One GPIO pin from 10 to 19 has been accessed\n");
-        return 1;
-    }
-    if (address == 0x20200008) {
-        printf("One GPIO pin from 20 to 29 has been accessed\n");
-        return 1;
-    }
-    return 0;
-}
-
-/*
  * Executes single data transfer instruction. Checks if the instruction to be
- * executed is in the bounds of memory size and gpio adresses. If not, it
+ * executed is in the bounds of memory size and Gpio addresses. If not, it
  * outputs the error and keeps working.
  *
  * If the code is loading from GPIO address, the loaded value is equal to that
- * address. 
+ * address.
  */
 void singleDataTransfer(state_t *state) {
     decoded_t *decoded = state->decoded;
@@ -239,22 +143,23 @@ void singleDataTransfer(state_t *state) {
         address += offset;
     }
 
-    if (address > MEMORY_SIZE) {
-		if (checkGpioAddresses(address)) {
-			if(decoded->isL) {
-				state->registers[decoded->rd] = address;
-			}
-		} else {
-            printf("Error: Out of bounds memory access at address 0x%08x\n",
+    int isGpio = isGpioAddress(address);
+    if (address > MEMORY_SIZE && !isGpio) {
+        printf("Error: Out of bounds memory access at address 0x%08x\n",
                 address);
-        }
         return;
     }
 
-    if (decoded->isL) {
-        state->registers[decoded->rd] = *((uint32_t *) &state->memory[address]);
-    } else {
-        *((uint32_t *) &state->memory[address]) = state->registers[decoded->rd];
+    if (!isGpio) {
+        if (decoded->isL) {
+            state->registers[decoded->rd] =
+                    *((uint32_t *) &state->memory[address]);
+        } else {
+            *((uint32_t *) &state->memory[address]) =
+                    state->registers[decoded->rd];
+        }
+    } else if (decoded->isL) {
+        state->registers[decoded->rd] = address;
     }
 
     if (!decoded->isP) {
@@ -264,7 +169,34 @@ void singleDataTransfer(state_t *state) {
         }
         state->registers[decoded->rn] = address;
     }
+}
 
+/*
+ * Checks if the single data transfer is accessing one of GPIO adresses
+ * If yes, it outputs the corresponding message
+ * Returns 1 if it is a GPIO address and 0 if it is not.
+ */
+int isGpioAddress(uint32_t address) {
+    switch (address) {
+        case 0x20200028:
+            printf("PIN OFF\n");
+            break;
+        case 0x2020001C:
+            printf("PIN ON\n");
+            break;
+        case 0x20200000:
+            printf("One GPIO pin from 0 to 9 has been accessed\n");
+            break;
+        case 0x20200004:
+            printf("One GPIO pin from 10 to 19 has been accessed\n");
+            break;
+        case 0x20200008:
+            printf("One GPIO pin from 20 to 29 has been accessed\n");
+            break;
+        default:
+            return 0;
+    }
+    return 1;
 }
 
 /*

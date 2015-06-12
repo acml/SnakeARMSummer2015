@@ -1,6 +1,12 @@
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
 #include "utils.h"
 
-/*  
+int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue);
+
+/*
  * Allocate memory for a new state_t
  * Initialises all the values in the struct
  * Returns a pointer to the state_t
@@ -42,106 +48,31 @@ state_t *newState(void) {
     return state;
 }
 
-/*  
+/*
  * Checks for null pointers
  * Frees all the pointers inside the state
  * Finally frees state itself
- */ 
+ */
 void delState(state_t *state) {
     if (state != NULL) {
         if (state->decoded != NULL) {
             free(state->decoded);
         }
-        
+
         if (state->registers != NULL) {
             free(state->registers);
         }
-        
+
         if (state->memory != NULL) {
             free(state->memory);
         }
-        
+
         free(state);
     }
 }
 
 /*
- * Takes in the program's arguments
- * Opens and reads the file specified
- * Writes this data to the state
- * Closes file if opened, and returns exit codes
- * Return 0 on failure, return EXIT_SUCCESS on success
- */ 
-int readBinary(state_t *state, int argc, char **argv) {
-    if (argc == 1) {
-        printf("No input file specified.\n");
-        return 0;
-    }
-
-    FILE *fp = fopen(argv[1], "rb");
-    if (fp == NULL) {
-        printf("Could not open input file.\n");
-        return 0;
-    }
-
-    uint8_t *buffer = malloc(sizeof(uint8_t));
-    int i = 0;
-    while (fread(buffer, sizeof(uint8_t), 1, fp) == 1) {
-        state->memory[i] = *buffer;
-        i++;
-    }
-    free(buffer);
-
-    fclose(fp);
-    return 1;
-}
-
-/*
- * Prints the content of the state's registers
- * Prints the content of memory at the given state
- * Prints the above to standard out and returns 1 to indicate success
- */
-int outputState(state_t *state) {
-    printf("Registers:\n");
-    for (int i = 0; i < REGISTERS_COUNT; i++) {
-        if (i != SP_REG && i != LR_REG) {
-            printRegister(state, i);
-        }
-    }
-
-    printf("Non-zero memory:\n");
-    for (int i = 0; i < MEMORY_SIZE; i += BYTES_IN_WORD) {
-        if (((uint32_t *) state->memory)[i / BYTES_IN_WORD] != 0) {
-            printf("0x%08x: 0x", i);
-            for (int j = 0; j < BYTES_IN_WORD; j++) {
-                printf("%02x", state->memory[i + j]);
-            }
-            printf("\n");
-        }
-    }
-
-    return 1;
-}
-
-/* 
- * Prints the contents of the register in a state
- * If it is r15 or r16, it prints label PC or CPSR respectively
- */
-void printRegister(state_t *state, int reg) {
-    if (reg == PC_REG) {
-        printf("PC  ");
-    } else if (reg == CPSR_REG) {
-        printf("CPSR");
-    } else {
-        printf("$%-3d", reg);
-    }
-    printf(": %10d (0x%08x)\n", state->registers[reg], state->registers[reg]);
-}
-
-/*
- * Returns the value in data between and upper and lower bit(both included).
- * Because it is a short function called often, we have decided to inline it
- * to improve performance.
+ * Returns the value in data between and upper and lower bit (both included).
  */
 inline uint32_t maskBits(uint32_t data, int upper, int lower) {
     assert(upper >= lower && upper <= 31 && lower >= 0);
@@ -158,10 +89,80 @@ uint32_t getFLag(state_t *state, int flag) {
 }
 
 /*
- * Sets or clears(according to val) given flag in CPSR_REG. 
+ * Sets or clears (according to val) given flag in CPSR_REG.
  */
 void setFlag(state_t *state, int val, int flag) {
     assert(val == 0 || val == 1);
     state->registers[CPSR_REG] ^= (-val ^ state->registers[CPSR_REG])
             & (1 << flag);
+}
+
+/*
+ * It asserts that the shiftValue is smaller than the size of the word.
+ * Returns the data shifted by shiftValue using a shift specified.
+ */
+uint32_t shiftData(uint32_t data, shift_t shift, uint32_t shiftValue) {
+    assert(shiftValue < BITS_IN_WORD);
+    if (shiftValue == 0) {
+        return data;
+    }
+    switch (shift) {
+        case LSL:
+            data <<= shiftValue;
+            break;
+        case LSR:
+            data >>= shiftValue;
+            break;
+        case ASR:
+            data = (int32_t) data >> shiftValue;
+            break;
+        case ROR:
+            data = (data >> shiftValue) | (data << (BITS_IN_WORD - shiftValue));
+            break;
+    }
+    return data;
+}
+
+/*
+ * Asserts that shiftValue is not longer than size of the word.
+ * Returns the last bit discarded/rotated by the corresponding shift
+ * For left shift, it is BITS_IN_WORD - shiftValue and for right
+ * shifts it is shiftValue - 1.
+ */
+int shiftCarry(uint32_t data, shift_t shift, uint32_t shiftValue) {
+    assert(shiftValue < BITS_IN_WORD);
+    if (shiftValue == 0) {
+        return 0;
+    }
+    int carryBit = 0;
+    switch (shift) {
+        case LSL:
+            carryBit = BITS_IN_WORD - shiftValue;
+            break;
+        case LSR:
+        case ASR:
+        case ROR:
+            carryBit = shiftValue - 1;
+            break;
+    }
+    return maskBits(data, carryBit, carryBit);
+}
+
+/*
+ * Executes shift register function necessary for computing operand2.
+ * Returns the shift output struct containing shifted data and the carry bit.
+ */
+shift_o shiftReg(state_t *state) {
+    decoded_t *decoded = state->decoded;
+
+    uint32_t shiftValue = decoded->shiftValue;
+    if (decoded->isRegShiftValue) {
+        shiftValue = maskBits(state->registers[decoded->rs], 7, 0);
+    }
+    uint32_t data = state->registers[decoded->rm];
+
+    shift_o output;
+    output.data = shiftData(data, decoded->shift, shiftValue);
+    output.carry = shiftCarry(data, decoded->shift, shiftValue);
+    return output;
 }
