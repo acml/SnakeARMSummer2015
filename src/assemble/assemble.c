@@ -8,7 +8,9 @@
 #include "binarywriter.h"
 
 /*
- * FUNCTION IMPLEMENTATION:
+ * takes the input and output locations
+ * allocates memory, sets it to 0
+ * writes the binary file and then frees the memory 
  */
 int main(int argc, char **argv) {
     if (argc < 3) {

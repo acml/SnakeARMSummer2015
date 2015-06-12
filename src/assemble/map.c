@@ -4,6 +4,10 @@
 
 #include "map.h"
 
+/*
+ * basic map functions
+ */
+
 map_e *mapAllocElem(void);
 void mapFreeElem(map_e *elem);
 

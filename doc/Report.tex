@@ -1,21 +1,218 @@
-\documentclass[11pt]{article}
+\documentclass[9pt]{article}
+
+\usepackage[a4paper,left=35mm,top=26mm,right=26mm,bottom=15mm]{geometry}
 
 \usepackage{fullpage}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{microtype}
+
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.6em}
+
+
+\title{ARM Project Report}
+\author{Group 22\\Jan Matas, Andrea Janoscikova, Yifan Wu, Paul Balaji}
+\date{June 12 2015}
 
 \begin{document}
 
-\title{Our Extension...}
-\author{TODO}
-
 \maketitle
 
-\section{Introduction}
+\section*{Emulator and Assembler}
+The first half of the project specification required us to produce an emulator and assembler for a reduced ARM instruction set. We have used the emulator in early stages of our work on extension, when we were learning arm assembly. We emulated the code we have written  and used gdb to move through it step by step and observed the changes. Later on, when we knew the basics, it was not particularly helpful anymore. More information about the emulator is available in the previous checkpoint report.
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
+The assembler was done in a similar fashion to the emulator, where everyone would work on separate functions and consolidate on more challenging portions. Both the emulator and assembler passed all the test cases in the given test suite, but we still decided to add extra methods to the assembler so it could handle the more complex instructions that we require for the extension.
+
+We use the two pass assembly process as outlined in the specification. In the first pass, we create a mapping from labels to addresses and we find the size of the program we are about to assemble. In the second pass, we tokenize each instruction, process it and store it in a big array representing memory. If the instruction requires to store additional big constant, we save it after the end of program, at a position determined in the first pass. Finally, we write the array into a file using our binary writer.
+
+\section*{Extension}
+We had plenty of ideas for the extension, but we decided to go for the famous old school game Snake. There was a mutual agreement that this project would be the most fulfilling for us, mainly due to the enticing prospect of a hand-crafted game to play at the end.
+
+\begin{description}
+    \item[Design Description] \hfill \\
+    After analysing our childhood memories of playing Snake, we broke down the project into smaller, more manageable tasks:
+    \begin{itemize}
+    \item Output - rendering the snake and background on a screen
+    \item Input - reading input from buttons, NES controller, or a keyboard so that the snake can be moved and the game could be paused (if necessary)
+    \item Game Logic
+        \begin{itemize}
+        \item Movement - rendering the head and erasing the tail
+        \item Collision - detecting when the snake collides with boundaries or itself
+        \item Food - random food placement when the game is reset, and detecting when this piece of food has been eaten up
+        \end{itemize}
+    \end{itemize}
+
+    \pagebreak
+    \item[Output for User] \hfill \\
+    The first challenge was to be able to provide the user with some output, so he or she knows what is going on inside the game. Initially, we decided to use an 8x8 LED matrix to show the snake, hoping it would be easier to use than a normal screen. However, this assumption was proven wrong, when we realized that we would need to write a full communication protocol using either serial or $\textrm{I}^{2}\textrm{C}$ interface.
+    
+    Consequently, we have opted to use a standard LCD monitor. We have found an incredibly useful tutorial on Cambridge's University's website, that provided us with step by step instructions on how to access the screen\footnote{https://www.cl.cam.ac.uk/projects/raspberrypi/tutorials/os/screen01.html}. We have used the code from this website as a kickoff point for our game. However we had to simplify it so it can be used with our simple assembler. 
+    
+    In particular, we did these changes:
+    \begin{itemize}
+    \item remove all register require and unrequire directives
+    \item remove the data section
+    \item change the layout of all data to full words (32-bit)
+    \item put all the code to one file and resolve conflicts, to avoid the need of linker
+    \end{itemize}
+    
+    We also had to update our assembler, namely:
+    \begin{itemize}
+    \item implement stack - push, pop instructions
+    \item implement branch with link and branch with exchange (bl, bx)
+    \item allow the condition suffix to be present at each instruction - not necessary but convenient (it was possible to use branching instead)
+    \item enable block comments
+    \end{itemize}
+    
+    Once these changes were implemented, we could change the colour of individual pixels on a LCD screen, using only our assembler.
+    
+    
+    \item[Input for User] \hfill \\
+    We have decided to make a very simple DIY controller for our game, based on a breadboard and six tactile buttons. The layout was created in the most intuitive way possible for such a primitive device, using 4 buttons arranged like a direction pad for snake movement, and additional two buttons for utilities such as pause, reset, and changing the levels. 
+    
+    We have guessed that reading GPIO will be pretty much the same as writing to them ie. just set a pin as input and read at some address. This assumption was more or less correct, but we have struggled to find the address to read from. We eventually found this forum post\footnote{https://www.raspberrypi.org/forums/viewtopic.php?f=72\&t=92790 post number 5, by Burngate}, where a user shared the list of all GPIO addresses also with their corresponding functions. We have created a small assembly application that showed the layout of our controller with squares that were changing color according to the input. This basic proof of concept simplified wiring and testing.
+    
+    \item[Game - Movement] \hfill \\
+        When we had input and output in place, we started implementing the game logic. Our first goal was to make a snake move around the edges of the screen. Initially, we attempted to redraw the whole screen in each iteration but this approach was incredibly slow and inefficient, so we had to rethink our strategy. Instead, we made a ``drawing square" and an ``erasing  square". Both of which are moving on the same path but the drawing one is a few steps ahead.
+        
+        In this way, we only need to rewrite necessary pixels, not all of them. There is another possible optimization - using only lines instead of squares, but this would force us to implement a more advanced logic involving direction. With a square, we just keep drawing regardless of the direction the snake is facing.
+     
+        We have also decided to restrict the snake to move only in a grid of 32x24 squares, which simplified the collision logic and collision detection. Please read ahead for more details on how we implemented collision detection.
+        
+        Controlling the direction of the drawing square was straightforward, we only had to use the input from the user. However the path of “erasing square” proved itself to be more challenging.
+
+We solved this issue by storing the state of each of the 768 (32*24 each starting at co-ordinates x and y equally divisible by 32) squares in one word in the memory of the Raspberry Pi. We could not find any way to make dynamic allocation, so we just stored all the data at an arbitrary ``magic number" memory location - 1,000,000. In each word, we have one bit each to say if the snake is present at that location, if the food is present there, and if the snake is present, which direction the eraser should continue.
+        
+    \begin{table}[h]
+    \centering
+    \caption*{\bf Word Layout}
+    \begin{tabular}{ccccccc}
+    bits 31-6 & bit 5 & bit 4 & bit 3 & bit 2 & bit 1 & bit 0 \\ \hline
+    \multicolumn{1}{|c|}{unused} & \multicolumn{1}{c|}{left} & \multicolumn{1}{c|}{down} & \multicolumn{1}{c|}{right} & \multicolumn{1}{c|}{up} &      \multicolumn{1}{c|}{food} & \multicolumn{1}{c|}{snake} \\ \hline    
+
+    \end{tabular}
+    \end{table}
+    
+    We decided to simplify our design by storing all the important data in general purpose registers. This reduced the amount of parameters needed to be passed around the program significantly.
+    
+    \begin{table}[h]
+    \centering
+    \caption*{\bf Register Assignments}
+    \begin{tabular}{|l|l|l|l|}
+    \hline
+    {\bf Register} & {\bf Assignment} & {\bf Register} & {\bf Assignment} \\ \hline
+    r0             & unused globally  & r8             & y pos of eraser  \\ \hline
+    r1             & unused globally  & r9             & x pos of eraser  \\ \hline
+    r2             & unused globally  & r10            & last input       \\ \hline
+    r3             & unused globally  & r11            & game state       \\ \hline
+    r4             & draw direction   & r12            & unused           \\ \hline
+    r5             & eraser direction & r13            & stack pointer    \\ \hline
+    r6             & y pos of drawing & r14            & caller's address \\ \hline
+    r7             & x pos of drawing & r15            & program counter  \\ \hline
+    \end{tabular}
+    \end{table}
+    
+    Use of registers should be mostly evident from the table. The only other thing to be noted is registers r10 and r11. In each iteration of the game loop, we check the input buttons and we set the value in r10 accordingly. This is then being read by the function responsible for drawing the snake. In r11, we store the state of the game. In particular we store the score, the number of cycles during which the erasing square needs to be paused, whether we need to redraw food, and whether the game needs to be reset.
+    
+    \begin{table}[h]
+    \centering
+    \caption*{\bf Layout of r11}
+    \begin{tabular}{ccccccc}
+    bits 31-14 & bit 12 & bit 12 & bits 11-0 \\ \hline
+    \multicolumn{1}{|c|}{score} & \multicolumn{1}{c|}{reset game} & \multicolumn{1}{c|}{redraw food} & \multicolumn{1}{c|}{pause} \\ \hline    
+    
+    \end{tabular}
+    \end{table}
+
+    We are aware of the fact that this might not be the best programming style, but due to lack of skills and time constraints, we had to compromise a little. Additionally, this implementation might be much faster than storing this widely used data in memory.
+
+        
+    \item[Game - Collisions] \hfill \\
+    The 32x24 grid has made collision checking a piece of cake. Whenever we want to write a position of a snake head into a square, we first check if there is a boundary or snake body at that square. If there is, we set the reset bit and the game restarts in the next iteration. It should be noted that these checks only occurs when the co-ordinates of the drawing square are multiples of 32 (so it is exactly aligned with the 32x24 grid). A quick way of checking this is testing if the last 5 bits are not set.
+    
+    \pagebreak
+    \item[Game - Food] \hfill \\
+    Mostly the same logic applies to detecting if  the food was eaten. We just check if the food bit is set and if true, we pause the erasing square for 32 iterations - the effective size of one square. We then clear the food bit in the corresponding square, we set the food bit at a new random location and we draw the food there.
+
+    \item[Problems Faced] \hfill
+    \begin{itemize}
+    \item Generating random numbers - Initially, we thought that we will just take a seed, do some shifts, rotates and multiplications and it will generate a good random number. However, even after trying multiple combinations of shifts and rotates, our numbers were of terrible quality - the food always seemed to appear in the same general location. We solved the issue by implementing a better algorithm (quadratic congruence generator) that we have found in the Cambridge University Baking Pi tutorial again. \footnote{See: https://www.cl.cam.ac.uk/projects/raspberrypi/tutorials/os/screen02.html}
+    
+    \item Subtle mistakes in our assembler - For example, our initial version was failing if there was not an empty line at the end of file. We spent quite some time finding this bug, because we suspected our assembly program to be broken, not the assembler himself. Fortunately, Yifan decided to double check our assembler and found this bug. We had a similar problem once again, when we used a tab instead of a space in a line of code.
+    
+    \item Snake's aesthetics - Firstly, the snake was drawn using only a square of size 32*32 pixels. Therefore it was impossible to distinguish the head and tail of snake, both looked exactly the same. Moreover, when the snake did a 180 degrees turn, it was rendered as a big green block, because the part about to turn essentially merged with the part that has already turned. We had to implement a different drawing shape. An obvious and easy choice was a smaller square (20*20) in the 32*32 grid square. However this was not good enough, because the head and tail still looked the same. Our final solution was to use an octagon, which created a snake-like head and also made the turns appear slightly smoother.
+    
+    \end{itemize}    
+
+    \item[Testing] \hfill \\
+    We found testing our assembly code extremely difficult. There is no mechanism for unit testing, so we compromised a little and tested each function only once after it was implemented. Thus, we made sure everything works before moving on to the next function. We did this by simply branching to a test label, observing the output and branching back.
+    
+    This approach is very limited. We can not make sure everything still worked after making some changes. Furthermore, testing with only one LED, or changing the color of an element on screen, can not provide us with enough information.
+    
+    Consequently, we had to do only end to end testing with our final implementation. We played the game, our friends played the game, and one member of the team was taking notes. We have fixed all the bugs that we could find. We can not be sure that our code works in every possible edge case, but we are sure that any bug, if one exists, does not negatively impact the gaming experience.  
+
+
+\end{description}
+
+\section*{Group Reflection}
+This group project was a chance for each of us to work on something of larger scale than much of our lab work and exams. It was critical to maintain good communication and effectively distribute work amongst our team. It is pleasing to write that our group felt positive about how we spoke to one another in the project.
+
+We used Facebook Messenger to form a group chat, where we would share what we were working and also what someone may require of another team member. Most other times, we would be sitting together in the lab, so we could converse face to face. This enabled our ideas to be transferred between each other accurately and fairly swiftly.
+
+We found that the way we split the work was good, because it enabled us to complete the project, with an extension, on time. The concept was to start together on the outline of a program, and then branch out when everyone understood how their chosen functions fit into the grand scheme of things.
+
+One of the challenging aspects of this project was utilising version control effectively. We had never used Git to even half of its potential before, but now we had to learn about branching, merging, and maybe even rolling back changes in case something goes wrong. Fortunately, there were many tutorials available online and even a Programming Tools lecture on \textit{Git for Groups}.
+
+If we were to do this project again, we would try to split the work in the same way because it made sure that everybody contributed to the codebase with something meaningful. We would also utilise Git in the same manner, because it was very useful when rolling back changes that broke the system.
+
+In retrospect, our extension might have been slightly more advanced and challenging. We have anticipated that drawing on the screen will be more difficult, but the tutorials made it quite easy. We were also confused about the deadlines, thinking that we need to have everything finished by 12th June, so we planned for simpler work than what me may have done knowing there is more time available.
+
+At the end of the day, programming in a group has been a very interesting challenge for each of us, in our own different ways. More information can be read in our individual reflections.
+
+\section*{Individual Reflections}
+
+\begin{quote}
+\subsection*{Jan}
+``\textit{I was working in a group of people with different personalities and various levels of computing skills. It was expected of me to deal with many of the issues which appear in this project. Everyone in this group was always ready to help with any issues that arose, therefore our achievement of the end product was fast, and thankfully, without bigger complications. I also believe that every member of the group has learned quite a lot of new skills and we had a lot of fun in doing so.} \\\\
+
+\textit{This project taught me the importance of splitting the work, helping each other, and discussing every problem with the group. As a leader, I tried to show my enthusiasm and interest in the project to motivate my team-mates. There were good times, and times when we were debugging, but in the end we achieved our plans, so I am satisfied with the group in which I was working.}"
+
+\end{quote}
+
+\begin{quote}
+\subsection*{Andrea}
+``\textit{Working in this group has been enjoyable. I am more than satisfied with the group management and communication. Everyone made an effort to finish our project successfully, which was really important. The group co-ordination has been improving every week and therefore we accomplished our plans easily.}
+
+\textit{However, working in this group was challenging for me, thanks to the help and patience of my group-mates I could improve my programming and problem solving skills. Their experiences and knowledge motivated me to work harder and to learn even more. I really appreciated team debugging when we spent lots of time trying to fix mistakes.  When someone was losing interest there was always somebody else ready to motivate him. To do the debugging individually would be inconvenient. Moreover, WebPA feedback was very useful and I will try to follow their advices.}
+
+\textit{Sometimes, there were situations when everyone would like to do things differently but most of the time, we tried to find compromises. This project showed us the importance of comments and good practices in coding style. We learned to tolerate each other, cooperate, and work as a team rather than a group of individuals.}"
+\end{quote}
+
+\pagebreak
+\begin{quote}
+\subsection*{Yifan}
+``\textit{Working in a group has been an exciting and challenging experience for me. It is quite different from working on my own and involves not only hard work but also requires sufficient communication and co-operation skills. It has been proven that communication is my most notable weak point when work as part of a group.}
+
+\textit{In the first part of the project, I am responsible for implement the pipeline of the emulator where it required many rewritings of existing codes from others. It would take much less time if I could share the problem first, then other members could work on it at the same time which would make more progress to the group. I have been putting efforts to improve my communication through out the project and would expect myself to be able to co-operate with others more closely in any further group work.}"
+\end{quote}
+
+\begin{quote}
+\subsection*{Paul}
+``\textit{Overall, I consider this group project a learning experience. Although I have prior experience working with Jan and Andrea in Topics, I have not worked on a sizeable project with much programming. This made the ARM project much more challenging for me, because there's a different way you have to work. I needed to make sure I'm working along the guidelines we have set internally, and sticking to our deadlines so that we can progress to the next task as a group.}
+
+\textit{I feel as though I fitted into the group well. I tried to work on my strengths more than weaknesses, so I felt somewhat responsible for managing the version control of our project. It appears my group members have noticed this, since my git knowledge has been mentioned several times in the WebPA feedback.}
+
+\textit{Although I did all the work assigned to me, on time and to a good standard, I should heed my peers' advice and seek to ask for more work in future projects. I need to be willing to go further outside my comfort zone to become a more well-rounded individual.}"
+\end{quote}
+
+\section*{Conclusion}
+Although the basic game is now working and is incredibly fun to play, we are not quite finished. Before the presentation, we are planning to implement a basic score counter. It is going to be either a line rendered somewhere on the screen, or maybe something with a bit more ``computing style" - a binary counter. Just before the start of our extension, we implemented a 3-bit binary counter with LEDs. We hope to reuse much of the code.
+
+Additionally, we want the user to have more power over the game. We are planning to use the two spare buttons we got as pause button and customize button, which will allow the user to choose from 10 different color schemes.
+
+Overall, we are happy with our extension and it was a rewarding experience for us. It was particularly pleasing when fellow students visit our desk in the computer lab and have a lot of fun playing our game. 
+
 
 \end{document}
+

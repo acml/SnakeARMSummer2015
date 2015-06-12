@@ -1,30 +1,41 @@
 \documentclass[11pt]{article}
-
 \usepackage{fullpage}
+
+\title{Checkpoint}
+\author{Ján Maťaš, Andrea Janoscikova, Yifan Wu, Paul Balaji}
+\date{May 29 2015}
 
 \begin{document}
 
-\title{ARM Checkpoint... }
-\author{TODO}
-
 \maketitle
 
-\section{Group Organisation}
+\subsection*{Work Distribution}
+To make a start on proceedings, we worked on the bare outline of the emulator - such as memory allocation and instruction routing. This was done as a group so that everyone would have a good idea of how the program would be structured and know what conventions we should aim to use. Once these things were decided, each of us worked on one of the 4 types of instruction that the emulator would execute. Due to his experience with ARMv7, Yifan was chosen to lead the implementation of the fetch-decode-execute pipeline.
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
+To ensure that everybody was keeping up-to-date with internal deadlines, we had regular group meetings in the Laboratory, as well as a Facebook group online. This allows us to keep in touch wherever we may be. Since it has been provided, we are using git as our version control, each of us making sure merge conflicts are resolved properly.
 
-\section{Implementation Strategies}
+\subsection*{Group Dynamic}
+For the most part, the group seems to be working well. A quick glance at the git repository's network shows that everybody is branching, merging and generally using version control properly. We are also getting the work done to our internal deadlines.
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
+However, there could be better communication within the group. Sometimes, some functions may be implemented in a certain way that depend on something in the pipeline, but the substructure of the pipeline may change and the aforementioned functions have to be re-written. This does improve the overall program, but it leads to much time being used up editing portions of code that have been written already.
 
+With more communication, the people writing the functions originally might update the functions themselves so that they may better understand the implementation of the pipeline, rather than leaving it Yifan. This leaves Yifan with a larger amount of work than others, which may be better distributed otherwise.
+
+Nonetheless, it is understandable that these are teething issues that can occur when working on a large project as a group. As the weeks go by and we are more familiarised with one another, there is likely to be greater efficiency in programming, coinciding with an increased proficiency with C.
+
+\subsection*{Emulator Structure}
+While constructing the emulator, we were paying attention to the specification in great detail. We decided to start our work by implementing functions for each instruction, since these would be relatively straightforward procedures. While working, we found a lot of mistakes and bad practices so we had to alter portions of our design quite often. This forced us to spend a lot of time adapting code that had already been written.
+
+The most important part of our emulator is the state of the emulated CPU. We designed a structure that would represent this, aptly naming it \textit{state}. The idea is that we pass a state pointer into each function, so all the necessary changes can be made. We noticed that our code was using a great amount of switch statements, so we decided to use enumerations to improve code readability.
+
+We also attempted to test each unit of the emulator right after we had written it but found it quite difficult because the entry point of the application was not written until the latter stages of the emulator's development. Hence we resorted to reasoning about the program and triple checking each function. Surprisingly, this approach worked well and it enabled us to pass all the tests in the provided test suite in a mere few hours after writing the last unique line of code.
+
+\subsection*{Looking Ahead}
+Going forward, we anticipate that the 3rd Phase of the project will be the most challenging. Working on assembly code needs immense thought and meticulous accuracy in the implementation, which requires hard work to be put in. Nonetheless, we are confident that as a group we can conquer this task together to produce a good solution.
+
+The project extension is something that will also be challenging because there is no limit to what we are allowed to do. There is a risk that aiming too low will not help us learn as much as we can, and aiming too high may compound us with more work than we could ever hope to accomplish. It will be difficult to set the bar at the right level, but that is where the challenge lies.
+
+\subsection*{Conclusion}
+Generally, we are satisfied with the code written for the first part of the project. We have learned quite a lot about the C programming language and gained more experience working as a team. We hope to apply this new-found wisdom throughout the remaining stages of the project.
 \end{document}
+
