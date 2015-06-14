@@ -83,6 +83,7 @@ main:
     mov r4,#16
     mov r10,#0
     mov r11,#0x1000
+    mov r12,#0
 
        /*
         * Draw initial background
@@ -136,9 +137,11 @@ loop1$:
 
     mov r3,r5
     mov r2,#0
+    push {r12}
     ldr r12,=0xfff
     tst r11,r12
     subne r11,r11,#1
+    pop {r12}
     bleq Move
     /*
      * store updated values
@@ -238,6 +241,7 @@ reset$:
     mov r4,#16
     mov r10,#0
     mov r11,#0x1000
+    mov r12,#0
     b loop1$
 
 
@@ -289,7 +293,9 @@ GenerateFood$:
     cmpne r6,#31
     popeq {r0,r1,r5,r6}
     beq GenerateFood$
-
+    push {r0-r4}
+    bl ScoreCounter
+    pop {r0-r4}
 
 
     lsl r5,#5
@@ -499,6 +505,7 @@ writeBlock:
     tst r2,#2
     movne r11,#0x1000
     addne r11,r11,#128
+    addne r12,r12,#1
 
 
     /*
@@ -808,6 +815,8 @@ DrawBg:
         teq r0,#0
         bne BgdrawRow$
 
+  
+
     pop {r4,r5,r15}
 
 
@@ -1024,3 +1033,107 @@ random:
     ldr r1,=900000
     str r0,[r1]
     mov r15,r14
+
+/*
+ * Score-Counter
+ * r12 will store current score
+ * r11 temp variable 
+ */
+ScoreCounter:
+
+    push {r14}
+
+    mov r3,#0xfe0000
+ /*
+  * check 1st rectangle
+  */
+    tst r12,#0x1
+    mov r0,#0
+    mov r1,#608
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+    bl DrawRectangle
+
+ /*
+  * check 2nd rectangle
+  */
+
+    tst r12,#0x2
+    mov r0,#0
+    mov r1,#576
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+
+ /*
+  * check 3rd rectangle
+  */
+
+    tst r12,#0x4
+    mov r0,#0
+    mov r1,#544
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+
+ /*
+  * check 4th rectangle
+  */
+
+    tst r12,#0x8
+    mov r0,#0
+    mov r1,#512
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+
+ /*
+  * check 5th rectangle
+  */
+
+    tst r12,#0x10
+    mov r0,#0
+    mov r1,#480
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+
+ /*
+  * check 6th rectangle
+  */
+
+    tst r12,#0x20
+    mov r0,#0
+    mov r1,#448
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+ /*
+  * check 7th rectangle
+  */
+
+    tst r12,#0x40
+    mov r0,#0
+    mov r1,#416
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+
+    bl DrawRectangle
+
+ /*
+  * check 8th rectangle
+  */
+    tst r12,#0x80
+    mov r0,#0
+    mov r1,#384
+    ldrne r3,=0xffffe066
+    moveq r3,#0
+    
+    bl DrawRectangle
+
+    pop {r15}
