@@ -312,7 +312,7 @@ GenerateFood$:
     mov r1,r6
     mov r2,#32
     mov r3,#0xff00
-    bl DrawRectangle
+    bl DrawFoodShape
     pop {r0-r4}
 
     sub r11,r11,#0x1000
@@ -616,6 +616,11 @@ DrawRectangle:
            add r7,r7,#5
         teq r3,r7
         bne drawRow$
+       /*
+      * Upper part of octagon
+      */
+    
+
      pop {r4,r5,r7,r15}
 
 DrawOctagon:
@@ -1184,6 +1189,159 @@ PinPress:
     pop {r15}
 
 
+DrawFoodShape:
+    push {r0-r10,r14}
+    /*
+     * r6 food width
+     * r0 y
+     * r1 x
+     * r4 y0
+     * r5 x0
+     * r6 offset
+     * constants : padding 6
+     *               size 32
+     */
+     mov r4,r0
+     mov r5,r1
 
+
+     /*
+      * Upper part of octagon
+      */
+     mov r6,#0
+     add r0,r0,#12
+     ldr r2,=0xff660033
+
+
+
+     FoodUpOuterLoop$:
+         /*
+          * Reset x and compute first pixel
+          * x = x0 + 6 + offset
+          */
+         mov r1,r5
+         add r1,r1,#6
+         add r1,r1,r6
+         FoodUpInnerLoop$:
+             /*
+              * Draw it
+              */
+             push {r0-r4}
+             bl DrawPixel
+             pop {r0-r4}
+
+             /*
+              * Increment x
+              */
+             add r1,r1,#1
+
+             /*
+              * Compute boundary r7 = x0 + (32-6) - offset
+              */
+             mov r7,r5
+             add r7,r7,#26
+             sub r7,r7,r6
+
+             /*
+              * while (x <  boundary)
+              */
+             cmp r1,r7
+             blt FoodUpInnerLoop$
+
+         /*
+          * Increment offset
+          */
+         add r6,r6,#1
+
+         /*
+          * Decrement y
+          */
+         sub r0,r0,#1
+
+         /*
+          * Compute boundary r7 = x0 + (32-6) - offset
+          */
+         mov r7,r4
+         add r7,r7,#6
+         cmp r0,r7
+         bne FoodUpOuterLoop$
+
+     mov r0,r4
+     add r0,r0,#19
+    FoodMidOuterLoop$:
+
+        mov r1,r5
+        add r1,r1,#25
+        FoodMidInnerLoop$:
+            push {r0-r4}
+            bl DrawPixel
+            pop {r0-r4}
+            sub r1,r1,#1
+
+            mov r7,r5
+            add r7,r7,#5
+            cmp r1,r7
+            bne FoodMidInnerLoop$
+
+        sub r0,r0,#1
+        mov r7,r4
+        add r7,r7,#12
+        cmp r0,r7
+        bne FoodMidOuterLoop$
+
+
+     /*
+      * Upper part of octagon
+      */
+     mov r6,#0
+     mov r0,r4
+     add r0,r0,#20
+
+
+
+
+     FoodDownOuterLoop$:
+         mov r1,r5
+         add r1,r1,#6
+         add r1,r1,r6
+         FoodDownInnerLoop$:
+             push {r0-r4}
+
+             bl DrawPixel
+             pop {r0-r4}
+             /*
+              * Increment x
+              */
+             add r1,r1,#1
+
+             /*
+              * Compute boundary r7 = x0 + (32-6) - offset
+              */
+             mov r7,r5
+             add r7,r7,#26
+             sub r7,r7,r6
+
+
+             cmp r1,r7
+             blt FoodDownInnerLoop$
+        /*
+          * Increment offset
+          */
+         add r6,r6,#1
+         /*
+          * Increment y
+          */
+         add r0,r0,#1
+
+         /*
+          * Compute boundary r7 = x0 + (32-6) - offset
+          */
+         mov r7,r4
+         add r7,r7,#26
+         cmp r0,r7
+         bne FoodDownOuterLoop$
+
+
+    pop {r0-r10,r15}
 
 
