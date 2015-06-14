@@ -195,10 +195,16 @@ loop1$:
     tst r7,#0x1000000
     movne r10,#32
 
+    /*
+     * Pin 11
+     * Pause
+     */
+     tst r7,#0x800
+    
+     blne PinPress
+     
+
     pop {r6-r7}
-
-
-
 
     /*
      * Wait loop
@@ -1137,3 +1143,47 @@ ScoreCounter:
     bl DrawRectangle
 
     pop {r15}
+
+PinPress:
+ push {r14}
+ 
+    CheckWait$:
+        ldr r6,=0x20200034
+        ldr r7,[r6]
+        tst r7,#0x800
+        bne CheckWait$
+
+    push {r0-r4}
+    ldr r0,=100000
+    bl Wait
+    pop {r0-r4}
+
+    CheckWait2$:
+        ldr r6,=0x20200034
+        ldr r7,[r6]
+        tst r7,#0x800
+        beq CheckWait2$
+
+    push {r0-r4}
+    ldr r0,=100000
+    bl Wait
+    pop {r0-r4}
+
+    CheckWait3$:
+        ldr r6,=0x20200034
+        ldr r7,[r6]
+        tst r7,#0x800
+        bne CheckWait3$
+
+    
+    push {r0-r4}
+    ldr r0,=100000
+    bl Wait
+    pop {r0-r4}
+
+    pop {r15}
+
+
+
+
+
