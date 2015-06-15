@@ -12,7 +12,8 @@ b main
  *
  * GRAPHICS ADDRESS = 11796480
  * STATE ADDRESS = 1000000
- * VARIABLES = 900000
+ * VARIABLE FOR BACKGROUND COLOUR COUNTER = 4194304 (2^22)
+ * VARIABLE FOR BACKGROUND COLOUR = 209715 (2^21)
  */
 
 main:
@@ -22,10 +23,33 @@ main:
 */
     mov r13,#0x8000
 
+    /*
+     * initial colors 
+     */ 
+    ldr r11,=4194304
+
+    /*
+     * Bg
+     */
+    ldr r12,=0xffFFE6B2
+    str r12,[r11]
+
+    /*
+     * Snake
+     */
+    ldr r12,=0xFF005200
+    str r12,[r11,#4]
+
+    /*
+     * Food
+     */
+    ldr r12,=0xff660033
+    str r12,[r11,#8]
+
 /* NEW
 * Setup the screen.
 */
-
+    
     mov r0,#1024
     mov r1,#768
     mov r2,#32
@@ -103,7 +127,7 @@ loop1$:
      */
     mov r0,r6
     mov r1,r7
-    ldr r3,=0xFF005200
+
     push {r0-r4}
     bl DrawOctagon
     pop {r0-r4}
@@ -129,8 +153,10 @@ loop1$:
     push {r0-r3}
     mov r0,r8
     mov r1,r9
-    ldr r3,=0xFFB49B82
-
+    push {r12}
+    ldr r12,=4194304
+    ldr r3,[r12]
+    pop {r12}
     push {r0-r4}
     bl DrawRectangle
     pop {r0-r4}
@@ -199,10 +225,16 @@ loop1$:
      * Pin 11
      * Pause
      */
-     tst r7,#0x800
+    tst r7,#0x800
+    blne PinPress
+
+    /*
+     * Pin 25
+     * Background Color
+     */
+    tst r7,#0x2000000
+    bne ChangeBackgroundColor$
     
-     blne PinPress
-     
 
     pop {r6-r7}
 
@@ -311,7 +343,7 @@ GenerateFood$:
     mov r0,r5
     mov r1,r6
     mov r2,#32
-    mov r3,#0xff00
+
     bl DrawFoodShape
     pop {r0-r4}
 
@@ -624,7 +656,7 @@ DrawRectangle:
      pop {r4,r5,r7,r15}
 
 DrawOctagon:
-    push {r0-r10,r14}
+    push {r0-r11,r14}
     /*
      * r6 snake width
      * r0 y
@@ -644,7 +676,9 @@ DrawOctagon:
       */
      mov r6,#0
      add r0,r0,#12
-     ldr r2,=0xFF005200
+
+     ldr r11,=4194304
+     ldr r2,[r11,#4]
 
 
 
@@ -776,7 +810,7 @@ DrawOctagon:
          bne OctagonDownOuterLoop$
 
 
-    pop {r0-r10,r15}
+    pop {r0-r11,r15}
 
 
 DrawBg:
@@ -790,7 +824,7 @@ DrawBg:
      * r3 will store y
      * r4 will store x
      */
-    push {r4,r5,r14}
+    push {r4,r5,r6,r14}
     mov r0,#768
     sub r1,r1,#1
 
@@ -804,7 +838,8 @@ DrawBg:
 
 
         BgdrawPixel$:
-            ldr r2,=0xFFB49B82
+            ldr r6,=4194304
+            ldr r2,[r6]
             cmp r0,#32
             ldrlt r2,=0xFF3A322A
             cmp r0,#736
@@ -828,7 +863,7 @@ DrawBg:
 
   
 
-    pop {r4,r5,r15}
+    pop {r4,r5,r6,r15}
 
 
 
@@ -1190,7 +1225,7 @@ PinPress:
 
 
 DrawFoodShape:
-    push {r0-r10,r14}
+    push {r0-r11,r14}
     /*
      * r6 food width
      * r0 y
@@ -1210,7 +1245,9 @@ DrawFoodShape:
       */
      mov r6,#0
      add r0,r0,#12
-     ldr r2,=0xff660033
+     ldr r11,=4194304
+     ldr r2,[r11,#8]
+     
 
 
 
@@ -1342,6 +1379,96 @@ DrawFoodShape:
          bne FoodDownOuterLoop$
 
 
-    pop {r0-r10,r15}
+    pop {r0-r11,r15}
 
+ChangeBackgroundColor$:
+
+    push {r8,r9,r10,r11,r12}
+
+    ldr r9,=4194304
+    ldr r12,[r9]
+
+
+
+    /*
+     * Monochrome snake
+     */
+    ldr r8,=0xffFFE6B2
+    cmp r12,r8
+    ldreq r10,=0xFF000000
+    ldreq r11,=0xFF909090
+    ldreq r12,=0xFFFFFFFF
+    beq changeColourEnd$
+
+    /*
+     * Girly snake
+     */
+    ldr r8,=0xFFFFFFFF
+    cmp r12,r8
+    ldreq r10,=0xFF6B24B2
+    ldreq r11,=0xFFB8005C
+    ldreq r12,=0xFFE0C2FF
+    beq changeColourEnd$
+
+    /*
+     * Goldish snake
+     */
+    ldr r8,=0xFFE0C2FF
+    cmp r12,r8
+    ldreq r10,=0xFFFFD119
+    ldreq r11,=0xFF663300
+    ldreq r12,=0xFFCCFF99
+    beq changeColourEnd$
+
+    /*
+     * Aquatic snake
+     */
+    ldr r8,=0xFFCCFF99
+    cmp r12,r8
+    ldreq r10,=0xFF2E2EB8
+    ldreq r11,=0xFF009999
+    ldreq r12,=0xFF99CCFF
+    beq changeColourEnd$
+
+    /*
+     * Forest snake
+     */
+    ldr r8,=0xFF99CCFF
+    cmp r12,r8
+    ldreq r10,=0xFF004700
+    ldreq r11,=0xff331A00
+    ldreq r12,=0xff85A366
+    beq changeColourEnd$
+
+    /*
+     * Original snake
+     */
+
+    ldr r8,=0xFF85A366
+    cmp r12,r8
+    ldreq r10,=0xFF005200
+    ldreq r11,=0xff660033
+    ldreq r12,=0xffFFE6B2
+    beq changeColourEnd$
+
+
+
+    changeColourEnd$:
+        /*
+         * Store bg color
+         */
+        str r12,[r9]
+        
+        /*
+         * Store snake color
+         */
+        str r10,[r9,#4] 
+
+        /*
+         * Store food color
+         */
+        str r11,[r9,#8]
+        pop {r8,r9,r10,r11,r12}
+        b reset$
+    
 
